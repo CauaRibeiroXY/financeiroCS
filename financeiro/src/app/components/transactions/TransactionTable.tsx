@@ -88,20 +88,21 @@ export function TransactionTable({
     );
   }, [transactions, search]);
 
+  // compute stats based on filtered list
   const totalDebit = useMemo(
     () =>
-      transactions
+      filtered
         .filter((t) => t.type === 'DEBIT')
         .reduce((s, t) => s + Math.abs(t.amount), 0),
-    [transactions]
+    [filtered]
   );
 
   const totalCredit = useMemo(
     () =>
-      transactions
+      filtered
         .filter((t) => t.type === 'CREDIT')
         .reduce((s, t) => s + Math.abs(t.amount), 0),
-    [transactions]
+    [filtered]
   );
 
   const netBalance = totalCredit - totalDebit;
@@ -112,7 +113,7 @@ export function TransactionTable({
     <div className="rounded-xl border border-[#30363d] bg-[#161b22] overflow-hidden">
       {/* Toolbar */}
       <div className="flex items-center gap-4 p-4 border-b border-[#30363d] flex-wrap">
-        {/* Search */}
+          {/* Search */}
         <div className="relative flex-1 min-w-48 max-w-72">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b949e]" />
           <input
