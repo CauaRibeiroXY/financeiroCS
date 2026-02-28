@@ -1,6 +1,7 @@
 'use client';
 
-import { Wallet, CreditCard, Building2 } from 'lucide-react';
+import { Wallet, CreditCard, Building2, Trash2 } from 'lucide-react';
+import { mutate } from 'swr';
 import { useDashboardData } from '@/app/hooks/useDashboardData';
 import { useItems } from '@/app/hooks/useItems';
 import { formatCurrency } from '@/app/lib/utils/format';
@@ -48,16 +49,40 @@ function AccountCard({
             </p>
           </div>
         </div>
-        <span
-          className={cn(
-            'text-xs px-2 py-0.5 rounded-full font-medium',
-            isCredit
-              ? 'bg-[#d29922]/20 text-[#d29922]'
-              : 'bg-[#3fb950]/20 text-[#3fb950]'
-          )}
-        >
-          {isCredit ? 'Crédito' : account.type === 'BANK' ? 'Corrente' : 'Pagamento'}
-        </span>
+        <div className="flex items-center gap-2">
+          <span
+            className={cn(
+              'text-xs px-2 py-0.5 rounded-full font-medium',
+              isCredit
+                ? 'bg-[#d29922]/20 text-[#d29922]'
+                : 'bg-[#3fb950]/20 text-[#3fb950]'
+            )}
+          >
+            {isCredit ? 'Crédito' : account.type === 'BANK' ? 'Corrente' : 'Pagamento'}
+          </span>
+          <button
+            type="button"
+            aria-label="Remover conta"
+            onClick={async () => {
+              if (!confirm('Remover esta conta? Esta ação não pode ser desfeita.')) return;
+              try {
+                const res = await fetch(`/api/accounts?accountId=${account.account_id}`, {
+                  method: 'DELETE',
+                });
+                if (!res.ok) throw new Error('Failed to delete');
+                // Revalidate accounts for this item
+                mutate(`/api/accounts?itemId=${account.item_id}&pageSize=200`);
+                mutate(`/api/accounts?itemId=${account.item_id}`);
+              } catch (err) {
+                console.error('Error deleting account:', err);
+                alert('Erro ao remover conta');
+              }
+            }}
+            className="p-1 rounded hover:bg-[#21262d]"
+          >
+            <Trash2 size={16} className="text-[#ff6b6b]" />
+          </button>
+        </div>
       </div>
 
       {/* Balance */}
