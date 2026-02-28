@@ -5,6 +5,7 @@ import { investmentTransactionsService } from './investment-transactions';
 import { loansService } from './loans';
 import { identityService } from './identity';
 import { creditCardBillsService } from './credit-card-bills';
+import { transactionsService } from './transactions';
 import { 
   Account,
   Investment,
@@ -17,19 +18,37 @@ import type {
   InvestmentRecord,
   LoanRecord,
   IdentityRecord,
+  TransactionRecord,
 } from '@/app/types/pluggy';
+import { Transaction } from 'pluggy-sdk';
 import { mapAccountFromPluggyToDb } from './mappers/account.mapper';
 import { mapInvestmentFromPluggyToDb } from './mappers/investment.mapper';
 import { mapInvestmentTransactionFromPluggyToDb } from './mappers/investment-transaction.mapper';
 import { mapLoanFromPluggyToDb } from './mappers/loan.mapper';
 import { mapIdentityFromPluggyToDb } from './mappers/identity.mapper';
 import { mapCreditCardBillFromPluggyToDb } from './mappers/credit-card-bill.mapper';
+import { mapTransactionFromPluggyToDb } from './mappers/transaction.mapper';
 
 const pluggyClient = getPluggyClient();
 
 export async function syncItemData(itemId: string): Promise<void> {
   try {
+    // First, sync account data
     await syncAccountData(itemId);
+
+    // Then sync transactions for each account
+    const accountsResponse = await pluggyClient.fetchAccounts(itemId);
+    if (accountsResponse.results && accountsResponse.results.length > 0) {
+      for (const account of accountsResponse.results.filter((a: Account) => a.id)) {
+        try {
+          await syncTransactionData(account.id);
+        } catch (error) {
+          console.error(`Error syncing transactions for account ${account.id}:`, error);
+        }
+      }
+    }
+
+    // Sync investment and loan data
     await syncInvestmentData(itemId);
     await syncLoanData(itemId);
     await syncIdentityData(itemId);
@@ -95,14 +114,45 @@ export async function syncInvestmentData(itemId: string): Promise<void> {
 
 export async function syncInvestmentTransactionData(investmentId: string): Promise<void> {
   try {
-    const invTransactionsResponse = await pluggyClient.fetchInvestmentTransactions(investmentId);
+    // Some Pluggy SDK responses include pagination fields like `nextPage`, `hasNextPage`,
+    // or a `meta.pagination` object. Keep fetching until there is no next page.
+    let page = 1;
+    const allTxns: ReturnType<typeof mapInvestmentTransactionFromPluggyToDb>[] = [];
 
-    if (invTransactionsResponse.results && invTransactionsResponse.results.length > 0) {
-      const invTransactionsToSave = invTransactionsResponse.results.map((txn: InvestmentTransaction) => 
-        mapInvestmentTransactionFromPluggyToDb(txn, investmentId)
+    while (true) {
+      const invTransactionsResponse: any = await pluggyClient.fetchInvestmentTransactions(investmentId, { page });
+
+      if (invTransactionsResponse?.results && invTransactionsResponse.results.length > 0) {
+        const invTransactionsToSave = invTransactionsResponse.results.map((txn: InvestmentTransaction) =>
+          mapInvestmentTransactionFromPluggyToDb(txn, investmentId)
+        );
+        allTxns.push(...invTransactionsToSave);
+      }
+
+      // Determine if there is a next page. Support several common shapes.
+      const hasNextPage = Boolean(
+        invTransactionsResponse?.hasNextPage ||
+          invTransactionsResponse?.nextPage ||
+          invTransactionsResponse?.meta?.pagination?.nextPage ||
+          // some APIs return a `cursor`/`next_cursor` or `meta.next_cursor` — treat absence as end
+          invTransactionsResponse?.meta?.pagination?.cursor
       );
 
-      await investmentTransactionsService.upsertTransactions(invTransactionsToSave);
+      // If `nextPage` is numeric we advance, otherwise break when no indicator
+      if (!hasNextPage) break;
+
+      // If nextPage provided as number, use it; otherwise increment page
+      if (typeof invTransactionsResponse.nextPage === 'number') {
+        page = invTransactionsResponse.nextPage;
+      } else if (typeof invTransactionsResponse.meta?.pagination?.nextPage === 'number') {
+        page = invTransactionsResponse.meta.pagination.nextPage;
+      } else {
+        page += 1;
+      }
+    }
+
+    if (allTxns.length > 0) {
+      await investmentTransactionsService.upsertTransactions(allTxns);
     }
   } catch (error) {
     console.error(`Error syncing investment transactions for ${investmentId}:`, {
@@ -130,6 +180,43 @@ export async function syncLoanData(itemId: string): Promise<void> {
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
       itemId,
+    });
+    throw error;
+  }
+}
+
+export async function syncTransactionData(accountId: string): Promise<void> {
+  try {
+    let page = 1;
+    const allTransactions: TransactionRecord[] = [];
+    let hasMore = true;
+
+    while (hasMore) {
+      const transactionsResponse: any = await pluggyClient.fetchTransactions(accountId, {
+        page,
+        pageSize: 500, // Maximum recommended by Pluggy for performance
+      });
+
+      if (transactionsResponse?.results && transactionsResponse.results.length > 0) {
+        const transactionsToSave = transactionsResponse.results.map((txn: Transaction) =>
+          mapTransactionFromPluggyToDb(txn, accountId) as TransactionRecord
+        );
+        allTransactions.push(...transactionsToSave);
+      }
+
+      // Check if there are more pages
+      hasMore = transactionsResponse?.results?.length === 500;
+      page++;
+    }
+
+    if (allTransactions.length > 0) {
+      await transactionsService.upsertTransactions(allTransactions);
+    }
+  } catch (error) {
+    console.error(`Error syncing transactions for account ${accountId}:`, {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      accountId,
     });
     throw error;
   }

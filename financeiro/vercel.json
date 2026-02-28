@@ -11,4 +11,11 @@
       "maxDuration": 30
     }
   }
+  ,
+  "crons": [
+    {
+      "path": "/api/cron/pluggy-sync",
+      "schedule": "0 */6 * * *"
+    }
+  ]
 }

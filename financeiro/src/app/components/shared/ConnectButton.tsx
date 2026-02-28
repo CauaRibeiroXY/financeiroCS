@@ -18,9 +18,19 @@ interface ConnectButtonProps {
   onSuccess?: () => void;
   onError?: (message: string) => void;
   className?: string;
+  /** override default label text */
+  label?: string;
+  /** if true the button renders only the icon (hides text) */
+  iconOnly?: boolean;
 }
 
-export function ConnectButton({ onSuccess, onError, className }: ConnectButtonProps) {
+export function ConnectButton({
+  onSuccess,
+  onError,
+  className,
+  label,
+  iconOnly = false,
+}: ConnectButtonProps) {
   const [connectToken, setConnectToken] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -70,7 +80,11 @@ export function ConnectButton({ onSuccess, onError, className }: ConnectButtonPr
         ) : (
           <PlusCircle size={16} />
         )}
-        {isLoading ? 'Conectando...' : 'Conectar Conta'}
+        {!iconOnly && (
+          <span>
+            {isLoading ? 'Conectando...' : label || 'Conectar Conta'}
+          </span>
+        )}
       </button>
 
       {typeof window !== 'undefined' && connectToken && isOpen && (
