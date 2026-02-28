@@ -1,12 +1,12 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
-import { Providers } from '@/app/components/providers/chakra-provider';
+import '@/styles/globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Pluggy Financial Dashboard',
-  description: 'Manage your financial connections',
+  title: 'Dashboard Financeiro',
+  description: 'Gerencie suas finanças em um só lugar',
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
 };
 
@@ -18,7 +18,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body className={inter.className}>
-        <Providers>{children}</Providers>
+        {children}
       </body>
     </html>
   );

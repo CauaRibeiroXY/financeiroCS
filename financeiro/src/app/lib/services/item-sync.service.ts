@@ -4,12 +4,14 @@ import { investmentsService } from './investments';
 import { investmentTransactionsService } from './investment-transactions';
 import { loansService } from './loans';
 import { identityService } from './identity';
+import { creditCardBillsService } from './credit-card-bills';
 import { 
   Account,
   Investment,
   InvestmentTransaction,
   Loan,
 } from 'pluggy-sdk';
+import type { CreditCardBills } from 'pluggy-sdk/dist/types/creditCardBills';
 import type { 
   AccountRecord, 
   InvestmentRecord,
@@ -21,6 +23,7 @@ import { mapInvestmentFromPluggyToDb } from './mappers/investment.mapper';
 import { mapInvestmentTransactionFromPluggyToDb } from './mappers/investment-transaction.mapper';
 import { mapLoanFromPluggyToDb } from './mappers/loan.mapper';
 import { mapIdentityFromPluggyToDb } from './mappers/identity.mapper';
+import { mapCreditCardBillFromPluggyToDb } from './mappers/credit-card-bill.mapper';
 
 const pluggyClient = getPluggyClient();
 
