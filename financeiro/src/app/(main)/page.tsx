@@ -6,6 +6,7 @@ import { SpendingPaceCard } from '@/app/components/dashboard/SpendingPaceCard';
 import { PatrimonyCard } from '@/app/components/dashboard/PatrimonyCard';
 import { PartialResultCard } from '@/app/components/dashboard/PartialResultCard';
 import { CategoryList } from '@/app/components/dashboard/CategoryList';
+import { CreditCardBillCard } from '@/app/components/dashboard/CreditCardBillCard';
 import { useItems } from '@/app/hooks/useItems';
 
 export default function DashboardPage() {
@@ -16,6 +17,8 @@ export default function DashboardPage() {
     partialResult,
     categories,
     spendingByDay,
+    allBills,
+    allAccounts,
     isLoading,
   } = useDashboardData();
 
@@ -73,16 +76,25 @@ export default function DashboardPage() {
               />
             </div>
 
-            {/* Bottom row: Resultado Parcial + Principais Categorias */}
+            {/* Middle row: Faturas + Principais Categorias */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+              <CreditCardBillCard
+                bills={allBills}
+                accounts={allAccounts}
+                isLoading={isLoading}
+              />
+              <CategoryList
+                categories={categories}
+                isLoading={isLoading}
+              />
+            </div>
+
+            {/* Bottom row: Resultado Parcial */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
               <PartialResultCard
                 totalIncome={totalIncome}
                 totalExpenses={totalExpenses}
                 partialResult={partialResult}
-                isLoading={isLoading}
-              />
-              <CategoryList
-                categories={categories}
                 isLoading={isLoading}
               />
             </div>

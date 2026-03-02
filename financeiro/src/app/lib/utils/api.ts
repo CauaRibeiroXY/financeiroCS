@@ -8,8 +8,18 @@ export const api = axios.create({
   },
 });
 
+// Adiciona um interceptor global para anexar a senha em todas as requisições Axios (caso utilizadas)
+api.interceptors.request.use((config) => {
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('app_password');
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+  }
+  return config;
+});
+
 if (process.env.NODE_ENV === 'development') {
-  api.interceptors.request.use((config) => {
-    return config;
-  });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  api.interceptors.request.use((config) => config);
 }

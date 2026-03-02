@@ -1,6 +1,7 @@
 'use client';
 
 import { Info, ArrowUpRight, TrendingUp, TrendingDown } from 'lucide-react';
+import Link from 'next/link';
 import { formatCurrency, formatPercentage } from '@/app/lib/utils/format';
 import { SkeletonCard } from '@/app/components/shared/Skeleton';
 
@@ -42,16 +43,15 @@ export function PartialResultCard({
           </span>
           <Info size={13} className="text-[#8b949e]" />
         </div>
-        <button className="flex items-center gap-1 text-[#58a6ff] text-xs hover:underline">
+        <Link href="/transactions" className="flex items-center gap-1 text-[#58a6ff] text-xs hover:underline">
           fluxo de caixa <ArrowUpRight size={12} />
-        </button>
+        </Link>
       </div>
 
       {/* Value */}
       <p
-        className={`text-3xl font-bold ${
-          isPositive ? 'text-[#3fb950]' : 'text-[#f85149]'
-        }`}
+        className={`text-3xl font-bold ${isPositive ? 'text-[#3fb950]' : 'text-[#f85149]'
+          }`}
       >
         {formatCurrency(partialResult)}
       </p>
@@ -60,11 +60,10 @@ export function PartialResultCard({
       {previousMonthResult !== 0 && (
         <div className="flex items-center gap-2">
           <span
-            className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
-              variation >= 0
+            className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${variation >= 0
                 ? 'bg-[#3fb950]/20 text-[#3fb950]'
                 : 'bg-[#f85149]/20 text-[#f85149]'
-            }`}
+              }`}
           >
             {variation >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
             {formatPercentage(variation)}

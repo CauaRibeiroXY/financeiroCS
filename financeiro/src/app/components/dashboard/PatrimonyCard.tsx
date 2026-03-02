@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ArrowUpRight, Clock } from 'lucide-react';
+import Link from 'next/link';
 import { formatCurrency } from '@/app/lib/utils/format';
 import { SkeletonCard } from '@/app/components/shared/Skeleton';
 import { cn } from '@/app/lib/utils/cn';
@@ -27,9 +28,9 @@ export function PatrimonyCard({ patrimony, isLoading, hasData = true }: Patrimon
         <span className="text-[#8b949e] text-xs font-semibold uppercase tracking-wider">
           Patrimônio
         </span>
-        <button className="flex items-center gap-1 text-[#58a6ff] text-xs hover:underline">
+        <Link href="/accounts" className="flex items-center gap-1 text-[#58a6ff] text-xs hover:underline">
           Ver todas <ArrowUpRight size={12} />
-        </button>
+        </Link>
       </div>
 
       {/* Value */}

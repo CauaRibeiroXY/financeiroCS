@@ -3,7 +3,7 @@
 import useSWR from 'swr';
 import { useMemo } from 'react';
 import { useItems } from './useItems';
-import type { AccountRecord, TransactionRecord } from '@/app/types/pluggy';
+import type { AccountRecord, TransactionRecord, CreditCardBillRecord } from '@/app/types/pluggy';
 
 interface AccountsResponse {
   success: boolean;
@@ -13,6 +13,11 @@ interface AccountsResponse {
 interface TransactionsResponse {
   success: boolean;
   data: { results: TransactionRecord[] };
+}
+
+interface BillsResponse {
+  success: boolean;
+  data: { results: CreditCardBillRecord[] };
 }
 
 export interface CategoryData {
@@ -31,6 +36,7 @@ export interface DashboardData {
   allAccounts: AccountRecord[];
   categories: CategoryData[];
   spendingByDay: { day: number; current: number; previous: number }[];
+  allBills: CreditCardBillRecord[];
   isLoading: boolean;
   isError: boolean;
 }
@@ -92,6 +98,35 @@ function useAllTransactionsForAccounts(accountIds: string[]) {
   return { allTransactions, isLoading, isError: !!error };
 }
 
+// Internal hook to fetch bills for multiple accounts in parallel
+function useAllBillsForAccounts(accountIds: string[]) {
+  const key =
+    accountIds.length > 0
+      ? accountIds.map((id) => `/api/bills?accountId=${id}&pageSize=200`).join('|')
+      : null;
+
+  const { data, error, isLoading } = useSWR<BillsResponse[]>(
+    key,
+    async () => {
+      const results = await Promise.all(
+        accountIds.map((id) =>
+          fetch(`/api/bills?accountId=${id}&pageSize=200`)
+            .then((r) => r.json())
+            .catch(() => ({ success: false, data: { results: [] } }))
+        )
+      );
+      return results;
+    }
+  );
+
+  const allBills: CreditCardBillRecord[] = useMemo(() => {
+    if (!data) return [];
+    return data.flatMap((r) => r?.data?.results ?? []);
+  }, [data]);
+
+  return { allBills, isLoading, isError: !!error };
+}
+
 export function useDashboardData(): DashboardData {
   const { items, isLoading: itemsLoading, isError: itemsError } = useItems();
 
@@ -114,8 +149,19 @@ export function useDashboardData(): DashboardData {
     isError: txError,
   } = useAllTransactionsForAccounts(accountIds);
 
-  const isLoading = itemsLoading || accountsLoading || txLoading;
-  const isError = itemsError || accountsError || txError;
+  const creditAccountIds = useMemo(
+    () => allAccounts.filter(a => a.type === 'CREDIT').map((a) => a.account_id),
+    [allAccounts]
+  );
+
+  const {
+    allBills,
+    isLoading: billsLoading,
+    isError: billsError,
+  } = useAllBillsForAccounts(creditAccountIds);
+
+  const isLoading = itemsLoading || accountsLoading || txLoading || billsLoading;
+  const isError = itemsError || accountsError || txError || billsError;
 
   // Compute aggregated data
   const patrimony = useMemo(
@@ -170,12 +216,48 @@ export function useDashboardData(): DashboardData {
 
   // Categories aggregation
   const categories: CategoryData[] = useMemo(() => {
+    const categoryTranslationMap: Record<string, string> = {
+      'Houseware': 'Utensílios domésticos',
+      'Food & Dining': 'Alimentação',
+      'Restaurants': 'Alimentação',
+      'Groceries': 'Alimentação',
+      'Telecommunications': 'Telecomunicações',
+      'Internet': 'Telecomunicações',
+      'Services': 'Serviços',
+      'Health & Fitness': 'Saúde',
+      'Recreation': 'Lazer',
+      'Entertainment': 'Lazer',
+      'Automotive': 'Automotivo',
+      'Gas Station': 'Postos de combustível',
+      'Gas stations': 'Postos de combustível',
+      'Parking': 'Automotivo',
+      'Taxes': 'Impostos',
+      'Education': 'Educação',
+      'Investments': 'Investimentos',
+      'Transfers': 'Transferência - PIX',
+      'Transfer - PIX': 'Transferência - PIX',
+      'Transfer': 'Transferência - PIX',
+      'Insurance': 'Seguros',
+      'Loans': 'Empréstimos',
+      'Fees': 'Taxas',
+      'Personal Care': 'Saúde',
+      'Travel': 'Lazer',
+      'Shopping': 'Utensílios domésticos',
+      'Food delivery': 'Alimentação',
+      'Other': 'Outros'
+    };
+
+    const translateCategory = (cat: string | undefined | null) => {
+      if (!cat) return 'Outros';
+      return categoryTranslationMap[cat] || cat;
+    };
+
     const catMap: Record<string, { current: number; previous: number }> = {};
 
     currentMonthTx
       .filter((t) => t.type === 'DEBIT')
       .forEach((t) => {
-        const cat = t.category || 'Outros';
+        const cat = translateCategory(t.category);
         if (!catMap[cat]) catMap[cat] = { current: 0, previous: 0 };
         catMap[cat].current += Math.abs(t.amount);
       });
@@ -183,7 +265,7 @@ export function useDashboardData(): DashboardData {
     prevMonthTx
       .filter((t) => t.type === 'DEBIT')
       .forEach((t) => {
-        const cat = t.category || 'Outros';
+        const cat = translateCategory(t.category);
         if (!catMap[cat]) catMap[cat] = { current: 0, previous: 0 };
         catMap[cat].previous += Math.abs(t.amount);
       });
@@ -214,7 +296,7 @@ export function useDashboardData(): DashboardData {
         previous: vals.previous,
         color: colors[name] || '#6b7280',
       }))
-      .sort((a, b) => b.current - a.current)
+      .sort((a, b) => b.current !== a.current ? b.current - a.current : b.previous - a.previous)
       .slice(0, 10);
   }, [currentMonthTx, prevMonthTx]);
 
@@ -258,6 +340,7 @@ export function useDashboardData(): DashboardData {
     allAccounts,
     categories,
     spendingByDay,
+    allBills,
     isLoading,
     isError,
   };

@@ -12,6 +12,7 @@ import {
   AreaChart,
 } from 'recharts';
 import { Info, ArrowUpRight, TrendingUp, TrendingDown } from 'lucide-react';
+import Link from 'next/link';
 import { formatCurrency, formatPercentage } from '@/app/lib/utils/format';
 import { SkeletonCard } from '@/app/components/shared/Skeleton';
 
@@ -61,9 +62,9 @@ export function SpendingPaceCard({
           </span>
           <Info size={13} className="text-[#8b949e]" />
         </div>
-        <button className="flex items-center gap-1 text-[#58a6ff] text-xs hover:underline">
+        <Link href="/transactions" className="flex items-center gap-1 text-[#58a6ff] text-xs hover:underline">
           Ver todas <ArrowUpRight size={12} />
-        </button>
+        </Link>
       </div>
 
       {/* Value */}
@@ -79,11 +80,10 @@ export function SpendingPaceCard({
       {/* Variation */}
       <div className="flex items-center gap-2">
         <span
-          className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
-            isAbove
+          className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${isAbove
               ? 'bg-[#f85149]/20 text-[#f85149]'
               : 'bg-[#3fb950]/20 text-[#3fb950]'
-          }`}
+            }`}
         >
           {isAbove ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
           {formatPercentage(variation)}
@@ -94,8 +94,8 @@ export function SpendingPaceCard({
       </div>
 
       {/* Chart */}
-      <div className="h-28 mt-1">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="h-28 mt-1 w-full">
+        <ResponsiveContainer width="100%" height={112}>
           <AreaChart data={spendingByDay} margin={{ top: 4, right: 4, left: -30, bottom: 0 }}>
             <defs>
               <linearGradient id="currentGrad" x1="0" y1="0" x2="0" y2="1">

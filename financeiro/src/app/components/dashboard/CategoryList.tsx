@@ -1,6 +1,7 @@
 'use client';
 
 import { ArrowUpRight, TrendingUp, TrendingDown } from 'lucide-react';
+import Link from 'next/link';
 import { formatCurrency, formatPercentage } from '@/app/lib/utils/format';
 import { SkeletonCategoryRow } from '@/app/components/shared/Skeleton';
 import type { CategoryData } from '@/app/hooks/useDashboardData';
@@ -20,9 +21,9 @@ export function CategoryList({ categories, isLoading }: CategoryListProps) {
         <span className="text-[#8b949e] text-xs font-semibold uppercase tracking-wider">
           Principais Categorias
         </span>
-        <button className="flex items-center gap-1 text-[#58a6ff] text-xs hover:underline">
+        <Link href="/transactions" className="flex items-center gap-1 text-[#58a6ff] text-xs hover:underline">
           Ver mais <ArrowUpRight size={12} />
-        </button>
+        </Link>
       </div>
 
       {/* Table header */}
@@ -85,11 +86,10 @@ export function CategoryList({ categories, isLoading }: CategoryListProps) {
               {/* Variation */}
               {cat.previous > 0 ? (
                 <span
-                  className={`flex items-center gap-0.5 text-xs font-medium px-1.5 py-0.5 rounded-full whitespace-nowrap ${
-                    isUp
+                  className={`flex items-center gap-0.5 text-xs font-medium px-1.5 py-0.5 rounded-full whitespace-nowrap ${isUp
                       ? 'bg-[#f85149]/20 text-[#f85149]'
                       : 'bg-[#3fb950]/20 text-[#3fb950]'
-                  }`}
+                    }`}
                 >
                   {isUp ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
                   {formatPercentage(variation)}
