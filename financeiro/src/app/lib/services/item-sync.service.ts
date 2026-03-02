@@ -5,6 +5,7 @@ import { investmentTransactionsService } from './investment-transactions';
 import { loansService } from './loans';
 import { identityService } from './identity';
 import { creditCardBillsService } from './credit-card-bills';
+import { syncCreditCardBillData } from './webhook-handlers/transactions-handler';
 import { transactionsService } from './transactions';
 import { 
   Account,
@@ -33,18 +34,24 @@ const pluggyClient = getPluggyClient();
 
 export async function syncItemData(itemId: string): Promise<void> {
   try {
-    // First, sync account data
-    await syncAccountData(itemId);
+    // First, sync account data and keep the returned list of accounts.
+    // this avoids a second call to /accounts when we already have them in memory.
+    const accounts = await syncAccountData(itemId);
 
-    // Then sync transactions for each account
-    const accountsResponse = await pluggyClient.fetchAccounts(itemId);
-    if (accountsResponse.results && accountsResponse.results.length > 0) {
-      for (const account of accountsResponse.results.filter((a: Account) => a.id)) {
-        try {
-          await syncTransactionData(account.id);
-        } catch (error) {
-          console.error(`Error syncing transactions for account ${account.id}:`, error);
+    // Pull‑on‑sync: iterate through each account and trigger the
+    // appropriate follow‑up sync job depending on the account type.
+    // The account object is passed along so subscribers don't need to
+    // fetch the account again.
+    for (const account of accounts) {
+      try {
+        if (account.type === 'CREDIT' || account.creditData) {
+          await syncCreditCardBillData(account);
+        } else {
+          await syncTransactionData(account);
         }
+      } catch (error) {
+        const idStr = typeof account.id === 'string' ? account.id : String(account.id);
+        console.error(`Error syncing data for account ${idStr}:`, error);
       }
     }
 
@@ -62,17 +69,26 @@ export async function syncItemData(itemId: string): Promise<void> {
   }
 }
 
-export async function syncAccountData(itemId: string): Promise<void> {
+// return the raw Pluggy Account objects we just pulled so callers can
+// iterate without re-fetching from the API.  The migration to a pull-on-\
+// sync strategy relies on having these in memory.
+export async function syncAccountData(itemId: string): Promise<Account[]> {
   try {
     const accountsResponse = await pluggyClient.fetchAccounts(itemId);
+    const results: Account[] = [];
 
     if (accountsResponse.results && accountsResponse.results.length > 0) {
-      const accounts = accountsResponse.results
+      // persist to DB
+      const accountsToSave = accountsResponse.results
         .filter((account: Account) => account.id)
         .map((account: Account) => mapAccountFromPluggyToDb(account, itemId) as AccountRecord);
 
-      await accountsService.upsertAccounts(accounts);
+      await accountsService.upsertAccounts(accountsToSave);
+      // keep a copy of the raw accounts for the caller
+      results.push(...accountsResponse.results.filter((a: Account) => a.id));
     }
+
+    return results;
   } catch (error) {
     console.error(`Error syncing accounts for item ${itemId}:`, {
       error: error instanceof Error ? error.message : String(error),
@@ -185,7 +201,12 @@ export async function syncLoanData(itemId: string): Promise<void> {
   }
 }
 
-export async function syncTransactionData(accountId: string): Promise<void> {
+// accountOrId may be an Account object already fetched from Pluggy
+// or simply the string id.  callers that already have the account should
+// pass the object in order to avoid any additional API/DB lookups.
+export async function syncTransactionData(accountOrId: string | Account): Promise<void> {
+  const accountId = typeof accountOrId === 'string' ? accountOrId : String(accountOrId.id);
+
   try {
     let page = 1;
     const allTransactions: TransactionRecord[] = [];
@@ -210,7 +231,16 @@ export async function syncTransactionData(accountId: string): Promise<void> {
     }
 
     if (allTransactions.length > 0) {
-      await transactionsService.upsertTransactions(allTransactions);
+      // de‑duplicate by transaction_id to keep the payload smaller and
+      // because redundant inserts will be ignored by the database onConflict
+      const seen = new Set<string>();
+      const uniqueTxns = allTransactions.filter(txn => {
+        if (seen.has(txn.transaction_id)) return false;
+        seen.add(txn.transaction_id);
+        return true;
+      });
+
+      await transactionsService.upsertTransactions(uniqueTxns);
     }
   } catch (error) {
     console.error(`Error syncing transactions for account ${accountId}:`, {

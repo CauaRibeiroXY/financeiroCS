@@ -5,7 +5,7 @@ import { creditCardBillsService } from "../credit-card-bills";
 import { accountsService } from "../accounts";
 import { mapTransactionFromPluggyToDb } from "../mappers/transaction.mapper";
 import { mapCreditCardBillFromPluggyToDb } from "../mappers/credit-card-bill.mapper";
-import { Transaction } from "pluggy-sdk";
+import { Transaction, Account } from "pluggy-sdk";
 import { CreditCardBills } from 'pluggy-sdk/dist/types/creditCardBills';
 import { WebhookEventPayload } from 'pluggy-sdk';
 import type { 
@@ -45,10 +45,13 @@ async function fetchAllTransactionsWithFilter(
 
 export async function handleTransactionsCreated({ accountId, itemId, transactionsCreatedAtFrom }: Extract<WebhookEventPayload, { event: 'transactions/created' }>): Promise<void> {
   try {
-    const accountExists = await accountsService.getAccountById(accountId);
+    // If the account is already in our DB we can hand it off to the
+    // sync helper so that the helper doesn't need to ask for it again.
+    let accountObj = await accountsService.getAccountById(accountId);
 
-    if (!accountExists) {
+    if (!accountObj) {
       await syncAccountData(itemId);
+      accountObj = await accountsService.getAccountById(accountId);
     }
 
     const transactions = await fetchAllTransactionsWithFilter(accountId, {
@@ -79,6 +82,8 @@ export async function handleTransactionsUpdated({transactionIds = [], accountId 
   try {
     if (transactionIds.length === 0) return;
 
+    // we don't have an account object here, but the sync helper is safe to
+    // call with just the id
     const transactions = await fetchAllTransactionsWithFilter(accountId, {
       ids: transactionIds
     });
@@ -116,7 +121,14 @@ export async function handleTransactionsDeleted({transactionIds = []}: Transacti
   }
 }
 
-export async function syncTransactionData(accountId: string): Promise<void> {
+// Accept either a bare accountId or a full Account object.  When
+// an Account is supplied callers can skip any preliminary lookup, which is
+// useful for the pull‑on‑sync flow where we already have the accounts list
+// in memory. The deduplication safety guard is handled at the service layer
+// via a unique constraint on `transaction_id` (see transactionsService.upsertTransactions).
+export async function syncTransactionData(accountOrId: string | Account): Promise<void> {
+  const accountId = typeof accountOrId === 'string' ? accountOrId : String(accountOrId.id);
+
   try {
     const allTransactions = await pluggyClient.fetchAllTransactions(accountId);
 
@@ -125,7 +137,16 @@ export async function syncTransactionData(accountId: string): Promise<void> {
         mapTransactionFromPluggyToDb(tx, accountId) as TransactionRecord
       );
 
-      await transactionsService.upsertTransactions(transactions);
+      // dedupe set in memory, but we also rely on the SQL onConflict safety
+      const seen = new Set<string>();
+      const unique = transactions.filter(t => {
+        if (seen.has(t.transaction_id)) return false;
+        seen.add(t.transaction_id);
+        return true;
+      });
+
+      // upsert will ignore duplicates based on pluggy_transaction_id
+      await transactionsService.upsertTransactions(unique);
     }
   } catch (error) {
     console.error(`Error syncing transactions for account ${accountId}:`, {
@@ -137,7 +158,9 @@ export async function syncTransactionData(accountId: string): Promise<void> {
   }
 }
 
-export async function syncCreditCardBillData(accountId: string): Promise<void> {
+export async function syncCreditCardBillData(accountOrId: string | Account): Promise<void> {
+  const accountId = typeof accountOrId === 'string' ? accountOrId : String(accountOrId.id);
+
   try {
     const billsResponse = await pluggyClient.fetchCreditCardBills(accountId);
     const billsArray = billsResponse.results || [];

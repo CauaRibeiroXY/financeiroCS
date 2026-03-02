@@ -23,7 +23,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, message: 'item id not provided' }, { status: 400 });
     }
 
-    // respond quickly and run sync in background
+    // respond quickly and run sync in a "background task" so the
+    // webhook request does not hang or hit a timeout.  syncItemData may
+    // iterate dozens of accounts and pull hundreds of transactions, so
+    // performing it asynchronously here mirrors a FastAPI BackgroundTask.
     void (async () => {
       try {
         await syncItemData(String(itemId));
