@@ -8,6 +8,7 @@ import {
   Wallet,
   ChevronLeft,
   ChevronRight,
+  Tags,
 } from 'lucide-react';
 import { cn } from '@/app/lib/utils/cn';
 import { useItems } from '@/app/hooks/useItems';
@@ -40,6 +41,11 @@ const navItems: NavItem[] = [
     href: '/accounts',
     icon: <Wallet size={18} />,
   },
+  {
+    label: 'Categorias',
+    href: '/categories',
+    icon: <Tags size={18} />,
+  },
 ];
 
 // bottom items removed per design – sidebar will no longer show feedback/support/plan links
@@ -64,9 +70,9 @@ export function Sidebar() {
 
   return (
     <aside className={cn(
-        'flex flex-col min-h-screen bg-[#161b22] border-r border-[#30363d] shrink-0 overflow-hidden',
-        collapsed ? 'w-16' : 'w-60'
-      )}>
+      'flex flex-col min-h-screen bg-[#161b22] border-r border-[#30363d] shrink-0 overflow-hidden',
+      collapsed ? 'w-16' : 'w-60'
+    )}>
       {/* Header: logo and collapse toggle */}
       <div
         className={cn(
