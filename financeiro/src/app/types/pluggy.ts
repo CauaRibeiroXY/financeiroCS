@@ -102,6 +102,7 @@ export interface AccountRecord {
   bank_data?: BankData | null;
   credit_data?: CreditData | null;
   disaggregated_credit_limits?: DisaggregatedCreditLimits | null;
+  icon_url?: string | null;
   created_at?: string;
   updated_at?: string;
 }

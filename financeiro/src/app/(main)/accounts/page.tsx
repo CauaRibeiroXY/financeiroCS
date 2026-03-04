@@ -4,10 +4,12 @@ import { Wallet, CreditCard, Building2, Trash2 } from 'lucide-react';
 import { mutate } from 'swr';
 import { useDashboardData } from '@/app/hooks/useDashboardData';
 import { useItems } from '@/app/hooks/useItems';
-import { formatCurrency } from '@/app/lib/utils/format';
+import { formatCurrency, getLocalLogo } from '@/app/lib/utils/format';
 import { SkeletonCard } from '@/app/components/shared/Skeleton';
 import type { AccountRecord, PluggyItemRecord } from '@/app/types/pluggy';
 import { cn } from '@/app/lib/utils/cn';
+
+
 
 function AccountCard({
   account,
@@ -19,25 +21,39 @@ function AccountCard({
   const isCredit = account.type === 'CREDIT';
   const bgColor = item?.primary_color || '#58a6ff';
 
+  const localLogo = getLocalLogo(account.marketing_name || account.name);
+  const finalLogoUrl = localLogo || account.icon_url || item?.connector_image_url;
+
   return (
     <div className="rounded-xl border border-[#30363d] bg-[#161b22] p-5 flex flex-col gap-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm overflow-hidden"
+            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm overflow-hidden"
             style={{ background: bgColor }}
           >
-            {item?.connector_image_url ? (
+            {finalLogoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={item.connector_image_url}
-                alt={item.connector_name || 'Bank'}
-                className="w-full h-full object-contain p-1"
+                src={finalLogoUrl}
+                alt={item?.connector_name || 'Bank'}
+                className="w-full h-full object-contain p-1 rounded-full bg-white"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  const nextSibling = e.currentTarget.nextElementSibling as HTMLElement;
+                  if (nextSibling) nextSibling.style.display = 'flex';
+                }}
               />
-            ) : (
-              (item?.connector_name || account.name).slice(0, 2).toUpperCase()
-            )}
+            ) : null}
+            <span
+              className="w-full h-full flex items-center justify-center"
+              style={{
+                display: finalLogoUrl ? 'none' : 'flex',
+              }}
+            >
+              {(item?.connector_name || account.name).slice(0, 2).toUpperCase()}
+            </span>
           </div>
           <div>
             <p className="text-[#e6edf3] text-sm font-semibold">
@@ -196,12 +212,12 @@ export default function AccountsPage() {
               {isLoading
                 ? Array.from({ length: 2 }).map((_, i) => <SkeletonCard key={i} />)
                 : bankAccounts.map((account) => (
-                    <AccountCard
-                      key={account.account_id}
-                      account={account}
-                      item={items.find((i) => i.item_id === account.item_id)}
-                    />
-                  ))}
+                  <AccountCard
+                    key={account.account_id}
+                    account={account}
+                    item={items.find((i) => i.item_id === account.item_id)}
+                  />
+                ))}
             </div>
           </section>
         )}
@@ -216,12 +232,12 @@ export default function AccountsPage() {
               {isLoading
                 ? Array.from({ length: 1 }).map((_, i) => <SkeletonCard key={i} />)
                 : creditAccounts.map((account) => (
-                    <AccountCard
-                      key={account.account_id}
-                      account={account}
-                      item={items.find((i) => i.item_id === account.item_id)}
-                    />
-                  ))}
+                  <AccountCard
+                    key={account.account_id}
+                    account={account}
+                    item={items.find((i) => i.item_id === account.item_id)}
+                  />
+                ))}
             </div>
           </section>
         )}

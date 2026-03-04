@@ -86,3 +86,15 @@ export function truncate(str: string, maxLength: number): string {
   if (str.length <= maxLength) return str;
   return str.slice(0, maxLength) + '...';
 }
+
+/**
+ * Retorna o caminho de um logo local baseado no nome da instituição
+ */
+export function getLocalLogo(name?: string): string | null {
+  if (!name) return null;
+  const normalized = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (normalized.includes('itau')) return '/logos/logo_itau.png';
+  if (normalized.includes('inter') || normalized.includes('gold')) return '/logos/logo_inter.png';
+  if (normalized.includes('mercado pago') || normalized.includes('mercadopago')) return '/logos/logo_mercadopago.png';
+  return null;
+}

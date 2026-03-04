@@ -2,6 +2,11 @@ import { Account } from "pluggy-sdk";
 import { AccountRecord } from "../../../types/pluggy";
 
 export function mapAccountFromPluggyToDb(account: Account, itemId: string): Omit<AccountRecord, 'id'> {
+  // Pluggy SDK Account might have an undocumented `imageUrl` or `connector?.imageUrl` 
+  const rawAcc = account as unknown as Record<string, unknown>;
+  const rawConnector = rawAcc.connector as Record<string, unknown> | undefined;
+  const imageUrlRaw = rawAcc.imageUrl || rawConnector?.imageUrl;
+
   return {
     item_id: itemId,
     account_id: String(account.id),
@@ -17,6 +22,7 @@ export function mapAccountFromPluggyToDb(account: Account, itemId: string): Omit
     bank_data: account.bankData as AccountRecord['bank_data'] || undefined,
     credit_data: account.creditData as AccountRecord['credit_data'] || undefined,
     disaggregated_credit_limits: undefined,
+    icon_url: typeof imageUrlRaw === 'string' ? imageUrlRaw : undefined,
   };
 }
 

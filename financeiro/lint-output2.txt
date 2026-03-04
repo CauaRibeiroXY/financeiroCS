@@ -1,0 +1,81 @@
+
+> pluggy-quickstart@0.1.0 lint
+> eslint .
+
+
+F:\Users\Kaka\Documentos\FinanceiroCS\cslabs\financeiro\src\app\(main)\categories\page.tsx
+  23:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  35:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Users\Kaka\Documentos\FinanceiroCS\cslabs\financeiro\src\app\api\categories\[id]\route.ts
+  27:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Users\Kaka\Documentos\FinanceiroCS\cslabs\financeiro\src\app\api\categories\route.ts
+  18:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  49:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Users\Kaka\Documentos\FinanceiroCS\cslabs\financeiro\src\app\api\transactions\categorize-all\route.ts
+  13:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Users\Kaka\Documentos\FinanceiroCS\cslabs\financeiro\src\app\api\transactions\full\route.ts
+  19:15  warning  'TransactionRecord' is defined but never used  @typescript-eslint/no-unused-vars
+
+F:\Users\Kaka\Documentos\FinanceiroCS\cslabs\financeiro\src\app\api\transactions\sync-category\route.ts
+  17:41  error    'fetchError' is never reassigned. Use 'const' instead  prefer-const
+  17:41  warning  'fetchError' is assigned a value but never used        @typescript-eslint/no-unused-vars
+  48:21  error    Unexpected any. Specify a different type               @typescript-eslint/no-explicit-any
+
+F:\Users\Kaka\Documentos\FinanceiroCS\cslabs\financeiro\src\app\components\AuthGuard.tsx
+  26:18  error    'resource' is never reassigned. Use 'const' instead  prefer-const
+  75:18  warning  'err' is defined but never used                      @typescript-eslint/no-unused-vars
+
+F:\Users\Kaka\Documentos\FinanceiroCS\cslabs\financeiro\src\app\components\dashboard\SpendingPaceCard.tsx
+   4:3  warning  'LineChart' is defined but never used      @typescript-eslint/no-unused-vars
+  10:3  warning  'ReferenceLine' is defined but never used  @typescript-eslint/no-unused-vars
+
+F:\Users\Kaka\Documentos\FinanceiroCS\cslabs\financeiro\src\app\components\layout\Sidebar.tsx
+  52:7   warning  'bottomItems' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  56:26  warning  'mutateItems' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  68:9   warning  'email' is assigned a value but never used        @typescript-eslint/no-unused-vars
+  69:9   warning  'initials' is assigned a value but never used     @typescript-eslint/no-unused-vars
+
+F:\Users\Kaka\Documentos\FinanceiroCS\cslabs\financeiro\src\app\components\shared\ConnectButton.tsx
+  52:32  warning  '_data' is defined but never used  @typescript-eslint/no-unused-vars
+
+F:\Users\Kaka\Documentos\FinanceiroCS\cslabs\financeiro\src\app\components\transactions\AllTransactionsExample.tsx
+  15:15  warning  'TransactionRecord' is defined but never used  @typescript-eslint/no-unused-vars
+
+F:\Users\Kaka\Documentos\FinanceiroCS\cslabs\financeiro\src\app\components\transactions\TransactionTable.tsx
+  114:15  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  134:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Users\Kaka\Documentos\FinanceiroCS\cslabs\financeiro\src\app\hooks\useCategories.ts
+  23:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  37:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Users\Kaka\Documentos\FinanceiroCS\cslabs\financeiro\src\app\lib\services\__tests__\transactions-handler.test.ts
+  11:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  26:8   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+F:\Users\Kaka\Documentos\FinanceiroCS\cslabs\financeiro\src\app\lib\services\__tests__\transactions.pagination.test.ts
+    8:10  warning  'fetchAllTransactions' is defined but never used                @typescript-eslint/no-unused-vars
+   11:7   warning  'mockPluggyResponse' is assigned a value but never used         @typescript-eslint/no-unused-vars
+   68:11  warning  'expectedCount' is assigned a value but never used              @typescript-eslint/no-unused-vars
+   74:11  warning  'from' is assigned a value but never used                       @typescript-eslint/no-unused-vars
+   75:11  warning  'to' is assigned a value but never used                         @typescript-eslint/no-unused-vars
+   81:11  warning  'pageSize' is assigned a value but never used                   @typescript-eslint/no-unused-vars
+  242:1   warning  Assign object to a variable before exporting as module default  import/no-anonymous-default-export
+
+F:\Users\Kaka\Documentos\FinanceiroCS\cslabs\financeiro\src\app\lib\services\item-sync.service.ts
+    7:10  warning  'creditCardBillsService' is defined but never used           @typescript-eslint/no-unused-vars
+   16:15  warning  'CreditCardBills' is defined but never used                  @typescript-eslint/no-unused-vars
+   30:10  warning  'mapCreditCardBillFromPluggyToDb' is defined but never used  @typescript-eslint/no-unused-vars
+  139:38  error    Unexpected any. Specify a different type                     @typescript-eslint/no-explicit-any
+  216:35  error    Unexpected any. Specify a different type                     @typescript-eslint/no-explicit-any
+
+F:\Users\Kaka\Documentos\FinanceiroCS\cslabs\financeiro\src\app\lib\utils\api.ts
+  23:3  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+
+Γ£û 39 problems (17 errors, 22 warnings)
+  0 errors and 1 warning potentially fixable with the `--fix` option.
+
