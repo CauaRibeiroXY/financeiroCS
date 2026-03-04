@@ -26,86 +26,79 @@ export function CategoryList({ categories, isLoading }: CategoryListProps) {
         </Link>
       </div>
 
-      {/* Table header */}
-      <div className="grid grid-cols-[1fr_auto_160px_80px_auto] gap-3 text-[#8b949e] text-xs pb-1 border-b border-[#30363d]">
-        <span>Categoria</span>
-        <span>Atual</span>
-        <span>vs Mês Anterior</span>
-        <span>Variação</span>
-        <span>Anterior</span>
-      </div>
+      {/* Table container for responsiveness */}
+      <div className="overflow-x-auto -mx-5 px-5 lg:mx-0 lg:px-0">
+        <div className="min-w-fit w-full lg:min-w-0">
+          {/* Table header */}
+          <div className="grid grid-cols-[minmax(120px,_1fr)_auto_80px_auto] gap-3 text-[#8b949e] text-xs pb-1 border-b border-[#30363d]">
+            <span>Categoria</span>
+            <span className="text-right">Atual</span>
+            <span className="text-center">Variação</span>
+            <span className="text-right">Anterior</span>
+          </div>
 
-      {/* Rows */}
-      {isLoading ? (
-        Array.from({ length: 6 }).map((_, i) => <SkeletonCategoryRow key={i} />)
-      ) : categories.length === 0 ? (
-        <p className="text-[#8b949e] text-sm py-6 text-center">
-          Sem dados de categorias para este mês.
-        </p>
-      ) : (
-        categories.map((cat) => {
-          const variation =
-            cat.previous > 0
-              ? ((cat.current - cat.previous) / cat.previous) * 100
-              : 0;
-          const barWidth = (cat.current / maxAmount) * 100;
-          const isUp = variation > 0;
+          {/* Rows */}
+          {isLoading ? (
+            Array.from({ length: 6 }).map((_, i) => <SkeletonCategoryRow key={i} />)
+          ) : categories.length === 0 ? (
+            <p className="text-[#8b949e] text-sm py-6 text-center">
+              Sem dados de categorias para este mês.
+            </p>
+          ) : (
+            categories.map((cat) => {
+              const variation =
+                cat.previous > 0
+                  ? ((cat.current - cat.previous) / cat.previous) * 100
+                  : 0;
+              const barWidth = (cat.current / maxAmount) * 100;
+              const isUp = variation > 0;
 
-          return (
-            <div
-              key={cat.name}
-              className="grid grid-cols-[1fr_auto_160px_80px_auto] gap-3 items-center py-2 border-b border-[#21262d] last:border-0"
-            >
-              {/* Name */}
-              <div className="flex items-center gap-2 min-w-0">
+              return (
                 <div
-                  className="w-2 h-2 rounded-full shrink-0"
-                  style={{ background: cat.color }}
-                />
-                <span className="text-[#e6edf3] text-sm truncate">{cat.name}</span>
-              </div>
-
-              {/* Current amount */}
-              <span className="text-[#e6edf3] text-sm font-medium whitespace-nowrap">
-                {formatCurrency(cat.current)}
-              </span>
-
-              {/* Progress bar */}
-              <div className="h-2 rounded-full bg-[#21262d] overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all"
-                  style={{
-                    width: `${barWidth}%`,
-                    background: cat.previous > 0 && cat.current > cat.previous
-                      ? '#f85149'
-                      : cat.color,
-                  }}
-                />
-              </div>
-
-              {/* Variation */}
-              {cat.previous > 0 ? (
-                <span
-                  className={`flex items-center gap-0.5 text-xs font-medium px-1.5 py-0.5 rounded-full whitespace-nowrap ${isUp
-                      ? 'bg-[#f85149]/20 text-[#f85149]'
-                      : 'bg-[#3fb950]/20 text-[#3fb950]'
-                    }`}
+                  key={cat.name}
+                  className="grid grid-cols-[minmax(120px,_1fr)_auto_80px_auto] gap-3 items-center py-2 border-b border-[#21262d] last:border-0"
                 >
-                  {isUp ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-                  {formatPercentage(variation)}
-                </span>
-              ) : (
-                <span className="text-[#8b949e] text-xs">--</span>
-              )}
+                  {/* Name */}
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div
+                      className="w-2 h-2 rounded-full shrink-0"
+                      style={{ background: cat.color }}
+                    />
+                    <span className="text-[#e6edf3] text-sm truncate">{cat.name}</span>
+                  </div>
 
-              {/* Previous amount */}
-              <span className="text-[#8b949e] text-sm whitespace-nowrap">
-                {cat.previous > 0 ? formatCurrency(cat.previous) : '--'}
-              </span>
-            </div>
-          );
-        })
-      )}
+                  {/* Current amount */}
+                  <span className="text-[#e6edf3] text-sm font-medium whitespace-nowrap text-right">
+                    {formatCurrency(cat.current)}
+                  </span>
+
+                  {/* Variation */}
+                  <div className="flex justify-center">
+                    {cat.previous > 0 ? (
+                      <span
+                        className={`flex items-center gap-0.5 text-xs font-medium px-1.5 py-0.5 rounded-full whitespace-nowrap ${isUp
+                          ? 'bg-[#f85149]/20 text-[#f85149]'
+                          : 'bg-[#3fb950]/20 text-[#3fb950]'
+                          }`}
+                      >
+                        {isUp ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+                        {formatPercentage(variation)}
+                      </span>
+                    ) : (
+                      <span className="text-[#8b949e] text-xs">--</span>
+                    )}
+                  </div>
+
+                  {/* Previous amount */}
+                  <span className="text-[#8b949e] text-sm whitespace-nowrap text-right">
+                    {cat.previous > 0 ? formatCurrency(cat.previous) : '--'}
+                  </span>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
     </div>
   );
 }

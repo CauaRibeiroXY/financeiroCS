@@ -17,6 +17,7 @@ import { useIdentity } from '@/app/hooks/useIdentity';
 import { getInitials } from '@/app/lib/utils/format';
 import React from 'react';
 import { ConnectButton } from '@/app/components/shared/ConnectButton';
+import { SyncButton } from '@/app/components/shared/SyncButton';
 import { useSWRConfig } from 'swr';
 
 interface NavItem {
@@ -176,12 +177,22 @@ export function Sidebar() {
       {/* Bottom items removed */}
       {/* sidebar is now retrátil; no links below */}
 
-      {/* connect icon at bottom */}
-      <div className="px-3 py-4 border-t border-[#30363d] flex justify-center">
+      {/* footer buttons: sync and connect */}
+      <div className={cn(
+        'p-3 border-t border-[#30363d] flex gap-2',
+        collapsed ? 'flex-col items-center' : 'flex-col'
+      )}>
+        <SyncButton
+          iconOnly={collapsed}
+          className={cn(collapsed ? 'p-2' : 'w-full justify-center')}
+        />
         <ConnectButton
           onSuccess={() => mutate(() => true, undefined, { revalidate: true })}
-          iconOnly
-          className="p-2"
+          iconOnly={collapsed}
+          className={cn(
+            'flex items-center justify-center gap-2 rounded-lg bg-[#58a6ff] text-black transition-all hover:bg-[#79b8ff] disabled:opacity-50 disabled:cursor-not-allowed',
+            collapsed ? 'p-2' : 'px-4 py-2 w-full text-sm font-semibold'
+          )}
         />
       </div>
     </aside>

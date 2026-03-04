@@ -35,7 +35,7 @@ export interface DashboardData {
   allTransactions: TransactionRecord[];
   allAccounts: AccountRecord[];
   categories: CategoryData[];
-  spendingByDay: { day: number; current: number; previous: number }[];
+  spendingByDay: { day: number; current: number | null; previous: number }[];
   allBills: CreditCardBillRecord[];
   isLoading: boolean;
   isError: boolean;
@@ -92,7 +92,9 @@ function useAllTransactionsForAccounts(accountIds: string[]) {
 
   const allTransactions: TransactionRecord[] = useMemo(() => {
     if (!data) return [];
-    return data.flatMap((r) => r?.data?.results ?? []);
+    const merged = data.flatMap((r) => r?.data?.results ?? []);
+    // Global sort by date DESC
+    return merged.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [data]);
 
   return { allTransactions, isLoading, isError: !!error };
@@ -305,17 +307,26 @@ export function useDashboardData(): DashboardData {
     const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
     const result = Array.from({ length: daysInMonth }, (_, i) => ({
       day: i + 1,
-      current: 0,
+      current: null as number | null,
       previous: 0,
     }));
 
     let cumCurrent = 0;
+    const todayDate = new Date();
+    const isCurrentMonth = currentMonth === todayDate.getMonth() && currentYear === todayDate.getFullYear();
+    const todayDay = todayDate.getDate();
+
     for (let d = 1; d <= daysInMonth; d++) {
       const dayTx = currentMonthTx.filter(
         (t) => new Date(t.date).getDate() === d && t.type === 'DEBIT'
       );
       cumCurrent += dayTx.reduce((s, t) => s + Math.abs(t.amount), 0);
-      result[d - 1].current = cumCurrent;
+
+      if (isCurrentMonth && d > todayDay) {
+        result[d - 1].current = null;
+      } else {
+        result[d - 1].current = cumCurrent;
+      }
     }
 
     let cumPrev = 0;
