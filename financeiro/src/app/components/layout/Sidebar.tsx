@@ -9,6 +9,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Tags,
+  RefreshCw,
 } from 'lucide-react';
 import { cn } from '@/app/lib/utils/cn';
 import { useItems } from '@/app/hooks/useItems';
@@ -46,6 +47,11 @@ const navItems: NavItem[] = [
     label: 'Categorias',
     href: '/categories',
     icon: <Tags size={18} />,
+  },
+  {
+    label: 'Recorrências',
+    href: '/recurrences',
+    icon: <RefreshCw size={18} />,
   },
 ];
 
