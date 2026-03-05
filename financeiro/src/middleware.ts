@@ -1,34 +1,37 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+// Rotas que NUNCA devem ser bloqueadas
+const PUBLIC_PATHS = ['/login', '/api/login', '/api/logout', '/api/webhook'];
+
 export function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
-    // ✅ libera webhook
-    if (pathname.startsWith('/api/webhook')) {
+    // Libera rotas públicas imediatamente (sem qualquer verificação)
+    if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
         return NextResponse.next();
     }
 
-    // 🔒 protege apenas páginas específicas
-    if (
-        pathname.startsWith('/dashboard') ||
-        pathname.startsWith('/admin')
-    ) {
-        const authHeader = request.headers.get('authorization');
-        const password = process.env.APP_PASSWORD;
+    // Verifica cookie httpOnly "auth"
+    const authCookie = request.cookies.get('auth');
 
-        if (!password) {
-            return new NextResponse('APP_PASSWORD não definida', { status: 500 });
-        }
-
-        if (authHeader !== `Bearer ${password}`) {
-            return new NextResponse('Unauthorized', { status: 401 });
-        }
+    if (!authCookie) {
+        // Redireciona para /login mantendo a URL de destino como query param
+        const loginUrl = new URL('/login', request.url);
+        loginUrl.searchParams.set('from', pathname);
+        return NextResponse.redirect(loginUrl);
     }
 
     return NextResponse.next();
 }
 
 export const config = {
-    matcher: ['/dashboard/:path*', '/admin/:path*', '/api/webhook'],
+    /*
+     * Captura APENAS páginas (não arquivos estáticos, não _next, não APIs).
+     * As APIs ficam fora do matcher — o middleware nunca as toca,
+     * exceto /api/login e /api/logout que já estão em PUBLIC_PATHS como fallback.
+     */
+    matcher: [
+        '/((?!_next/static|_next/image|favicon.ico|api/).*)',
+    ],
 };
