@@ -3,29 +3,25 @@ import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
-    const envPassword = process.env.APP_PASSWORD;
 
-    if (!envPassword) {
-        return NextResponse.json(
-            { error: 'APP_PASSWORD não está definida.' },
-            { status: 500 }
-        );
-    }
-
-    // LIBERA WEBHOOK
+    // ✅ libera webhook
     if (pathname.startsWith('/api/webhook')) {
         return NextResponse.next();
     }
 
-    // Protege páginas (não APIs)
-    if (!pathname.startsWith('/api')) {
-        const authHeader = request.headers.get('Authorization');
+    // 🔒 protege apenas páginas específicas
+    if (
+        pathname.startsWith('/dashboard') ||
+        pathname.startsWith('/admin')
+    ) {
+        const authHeader = request.headers.get('authorization');
+        const password = process.env.APP_PASSWORD;
 
-        const isValid =
-            authHeader === `Bearer ${envPassword}` ||
-            authHeader === envPassword;
+        if (!password) {
+            return new NextResponse('APP_PASSWORD não definida', { status: 500 });
+        }
 
-        if (!isValid) {
+        if (authHeader !== `Bearer ${password}`) {
             return new NextResponse('Unauthorized', { status: 401 });
         }
     }
@@ -34,5 +30,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-    matcher: '/((?!_next|favicon.ico).*)',
+    matcher: ['/dashboard/:path*', '/admin/:path*', '/api/webhook'],
 };
