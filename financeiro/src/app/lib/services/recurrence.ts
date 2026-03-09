@@ -47,6 +47,49 @@ function normalizeDescription(raw: string): string {
         .trim();
 }
 
+/**
+ * Identifies transaction IDs that are cross-account internal transfers.
+ *
+ * A pair qualifies when:
+ * - One side is DEBIT on account A, the other is CREDIT on a different account B
+ * - Amounts match within 1%
+ * - Dates are within 2 calendar days
+ *
+ * Both sides are returned so they can be excluded from expense analysis.
+ * This handles PIX between spouses, self-transfers between own accounts, etc.
+ */
+function findInternalTransferIds(transactions: TransactionRecord[]): Set<string> {
+    const internalIds = new Set<string>();
+
+    const accountIds = new Set(transactions.map((t) => t.account_id));
+    if (accountIds.size < 2) return internalIds;
+
+    const credits = transactions.filter((t) => t.type === 'CREDIT');
+    const debits = transactions.filter((t) => t.type === 'DEBIT');
+
+    for (const debit of debits) {
+        const debitAmt = Math.abs(debit.amount);
+        const debitTime = new Date(debit.date).getTime();
+
+        for (const credit of credits) {
+            if (debit.account_id === credit.account_id) continue;
+
+            const creditAmt = Math.abs(credit.amount);
+            const amtDiff = Math.abs(debitAmt - creditAmt) / Math.max(debitAmt, creditAmt);
+            if (amtDiff > 0.01) continue;
+
+            const creditTime = new Date(credit.date).getTime();
+            const dayDiff = Math.abs(debitTime - creditTime) / (1000 * 60 * 60 * 24);
+            if (dayDiff > 2) continue;
+
+            if (debit.transaction_id) internalIds.add(debit.transaction_id);
+            if (credit.transaction_id) internalIds.add(credit.transaction_id);
+        }
+    }
+
+    return internalIds;
+}
+
 /** Returns the most common element in an array (mode). */
 function mode<T>(arr: T[]): T {
     const counts = new Map<T, number>();
@@ -136,10 +179,16 @@ export function detectRecurrences(transactions: TransactionRecord[]): Recurrence
     const now = new Date();
     const cutoff = new Date(now.getFullYear(), now.getMonth() - 2, 1); // 1st of 2 months ago
 
+    // Step 1b: Identify cross-account internal transfers (e.g. PIX between spouses)
+    // so they are not counted as expenses in the recurrence analysis.
+    const internalTransferIds = findInternalTransferIds(transactions);
+
     const debits = transactions.filter((t) => {
         if (t.type !== 'DEBIT') return false;
         const txDate = new Date(t.date);
-        return txDate >= cutoff;
+        if (txDate < cutoff) return false;
+        if (t.transaction_id && internalTransferIds.has(t.transaction_id)) return false;
+        return true;
     });
 
     // Step 2: Group by normalized description
