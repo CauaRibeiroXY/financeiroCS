@@ -1,0 +1,10 @@
+var R=require("../../../../chunks/[turbopack]_runtime.js")("server/app/api/cron/pluggy-sync/route.js")
+R.c("server/chunks/7a277_next_d4b1b44d._.js")
+R.c("server/chunks/7a277_got_dist_source_202ff479._.js")
+R.c("server/chunks/7a277_@supabase_storage-js_dist_module_c1105097._.js")
+R.c("server/chunks/7a277_@supabase_auth-js_dist_module_2a2243ae._.js")
+R.c("server/chunks/7a277_1fe44902._.js")
+R.c("server/chunks/[root-of-the-server]__2133167a._.js")
+R.c("server/chunks/financeiro__next-internal_server_app_api_cron_pluggy-sync_route_actions_07d417b2.js")
+R.m("[project]/financeiro/node_modules/next/dist/esm/build/templates/app-route.js { INNER_APP_ROUTE => \"[project]/financeiro/src/app/api/cron/pluggy-sync/route.ts [app-route] (ecmascript)\" } [app-route] (ecmascript)")
+module.exports=R.m("[project]/financeiro/node_modules/next/dist/esm/build/templates/app-route.js { INNER_APP_ROUTE => \"[project]/financeiro/src/app/api/cron/pluggy-sync/route.ts [app-route] (ecmascript)\" } [app-route] (ecmascript)").exports

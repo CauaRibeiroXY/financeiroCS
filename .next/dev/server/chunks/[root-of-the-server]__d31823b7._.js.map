@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 46, "column": 0}, "map": {"version":3,"sources":["file:///F:/Users/Kaka/Documentos/FinanceiroCS/cslabs/financeiro/src/app/api/auth/verify/route.ts"],"sourcesContent":["import { NextResponse } from 'next/server';\r\n\r\nexport async function GET() {\r\n    // A própria requisição já terá passado pelo middleware de verificação,\r\n    // ou seja, se chegar aqui a senha é válida.\r\n    return NextResponse.json({ success: true, message: 'Autenticado com sucesso' });\r\n}\r\n"],"names":[],"mappings":";;;;AAAA;;AAEO,eAAe;IAClB,uEAAuE;IACvE,4CAA4C;IAC5C,OAAO,8JAAY,CAAC,IAAI,CAAC;QAAE,SAAS;QAAM,SAAS;IAA0B;AACjF"}}]
+}

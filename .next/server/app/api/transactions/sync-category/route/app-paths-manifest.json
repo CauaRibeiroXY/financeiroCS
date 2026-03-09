@@ -1,0 +1,3 @@
+{
+  "/api/transactions/sync-category/route": "app/api/transactions/sync-category/route.js"
+}

@@ -1,0 +1,10 @@
+{
+  "/(main)/recurrences/page": "app/(main)/recurrences/page.js",
+  "/api/accounts/route": "app/api/accounts/route.js",
+  "/api/bills/route": "app/api/bills/route.js",
+  "/api/identity/route": "app/api/identity/route.js",
+  "/api/items/route": "app/api/items/route.js",
+  "/api/login/route": "app/api/login/route.js",
+  "/api/transactions/route": "app/api/transactions/route.js",
+  "/login/page": "app/login/page.js"
+}

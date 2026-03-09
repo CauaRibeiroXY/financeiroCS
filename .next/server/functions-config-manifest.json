@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "functions": {
+    "/api/identity": {
+      "maxDuration": 30
+    },
+    "/api/investments": {
+      "maxDuration": 30
+    },
+    "/api/accounts": {
+      "maxDuration": 30
+    },
+    "/api/bills": {
+      "maxDuration": 30
+    },
+    "/api/investment-transactions": {
+      "maxDuration": 30
+    },
+    "/api/loans": {
+      "maxDuration": 30
+    },
+    "/api/token": {
+      "maxDuration": 30
+    },
+    "/api/items": {
+      "maxDuration": 30
+    },
+    "/api/transactions": {
+      "maxDuration": 30
+    },
+    "/api/webhook": {
+      "maxDuration": 30
+    },
+    "/api/transactions/full": {
+      "maxDuration": 300
+    }
+  }
+}

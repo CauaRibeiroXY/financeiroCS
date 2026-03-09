@@ -1,0 +1,33 @@
+{
+  "version": 3,
+  "middleware": {
+    "/": {
+      "files": [
+        "server/edge/chunks/financeiro_edge-wrapper_8e9859ae.js",
+        "server/edge/chunks/[root-of-the-server]__462ca217._.js",
+        "server/edge/chunks/turbopack-financeiro_edge-wrapper_9bb6737f.js"
+      ],
+      "name": "middleware",
+      "page": "/",
+      "matchers": [
+        {
+          "regexp": "^(?:\\/(_next\\/data\\/[^/]{1,}))?(?:\\/((?!_next\\/static|_next\\/image|favicon.ico|api\\/).*))(\\\\.json)?[\\/#\\?]?$",
+          "originalSource": "/((?!_next/static|_next/image|favicon.ico|api/).*)"
+        }
+      ],
+      "wasm": [],
+      "assets": [],
+      "env": {
+        "__NEXT_BUILD_ID": "kowHjOUd2kzSqEwrGc1Ok",
+        "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "vbP5aMIZyPxiZqGG3+rV6K/JptkVriQ4eznxk+MwKvU=",
+        "__NEXT_PREVIEW_MODE_ID": "8e1440b9b3d8139c7f21ae64f7246092",
+        "__NEXT_PREVIEW_MODE_ENCRYPTION_KEY": "2e8c32b4a6273d0c4c15f2c95da8ca0141e6846cb65928ceed707f9b0356932a",
+        "__NEXT_PREVIEW_MODE_SIGNING_KEY": "1a74948726fb6977a778fcc2ac7438a886d09775e0dedd16c8d0682647bd8ff4"
+      }
+    }
+  },
+  "sortedMiddleware": [
+    "/"
+  ],
+  "functions": {}
+}

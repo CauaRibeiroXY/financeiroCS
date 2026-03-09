@@ -1,0 +1,244 @@
+{
+  "version": 3,
+  "pages404": true,
+  "caseSensitive": false,
+  "basePath": "",
+  "redirects": [
+    {
+      "source": "/:path+/",
+      "destination": "/:path+",
+      "internal": true,
+      "priority": true,
+      "statusCode": 308,
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/:path*",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Credentials",
+          "value": "true"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET,DELETE,PATCH,POST,PUT,OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version"
+        }
+      ],
+      "regex": "^/api(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?(?:/)?$"
+    }
+  ],
+  "rewrites": {
+    "beforeFiles": [],
+    "afterFiles": [],
+    "fallback": []
+  },
+  "dynamicRoutes": [
+    {
+      "page": "/api/categories/[id]",
+      "regex": "^/api/categories/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/categories/(?<nxtPid>[^/]+?)(?:/)?$"
+    }
+  ],
+  "staticRoutes": [
+    {
+      "page": "/",
+      "regex": "^/(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/(?:/)?$"
+    },
+    {
+      "page": "/_global-error",
+      "regex": "^/_global\\-error(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_global\\-error(?:/)?$"
+    },
+    {
+      "page": "/_not-found",
+      "regex": "^/_not\\-found(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/accounts",
+      "regex": "^/accounts(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/accounts(?:/)?$"
+    },
+    {
+      "page": "/api/accounts",
+      "regex": "^/api/accounts(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/accounts(?:/)?$"
+    },
+    {
+      "page": "/api/auth/verify",
+      "regex": "^/api/auth/verify(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/verify(?:/)?$"
+    },
+    {
+      "page": "/api/bills",
+      "regex": "^/api/bills(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/bills(?:/)?$"
+    },
+    {
+      "page": "/api/categories",
+      "regex": "^/api/categories(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/categories(?:/)?$"
+    },
+    {
+      "page": "/api/cron/pluggy-sync",
+      "regex": "^/api/cron/pluggy\\-sync(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/cron/pluggy\\-sync(?:/)?$"
+    },
+    {
+      "page": "/api/identity",
+      "regex": "^/api/identity(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/identity(?:/)?$"
+    },
+    {
+      "page": "/api/investment-transactions",
+      "regex": "^/api/investment\\-transactions(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/investment\\-transactions(?:/)?$"
+    },
+    {
+      "page": "/api/investments",
+      "regex": "^/api/investments(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/investments(?:/)?$"
+    },
+    {
+      "page": "/api/items",
+      "regex": "^/api/items(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/items(?:/)?$"
+    },
+    {
+      "page": "/api/loans",
+      "regex": "^/api/loans(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/loans(?:/)?$"
+    },
+    {
+      "page": "/api/login",
+      "regex": "^/api/login(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/login(?:/)?$"
+    },
+    {
+      "page": "/api/logout",
+      "regex": "^/api/logout(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/logout(?:/)?$"
+    },
+    {
+      "page": "/api/pluggy-webhook",
+      "regex": "^/api/pluggy\\-webhook(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/pluggy\\-webhook(?:/)?$"
+    },
+    {
+      "page": "/api/token",
+      "regex": "^/api/token(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/token(?:/)?$"
+    },
+    {
+      "page": "/api/transactions",
+      "regex": "^/api/transactions(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/transactions(?:/)?$"
+    },
+    {
+      "page": "/api/transactions/categorize-all",
+      "regex": "^/api/transactions/categorize\\-all(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/transactions/categorize\\-all(?:/)?$"
+    },
+    {
+      "page": "/api/transactions/full",
+      "regex": "^/api/transactions/full(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/transactions/full(?:/)?$"
+    },
+    {
+      "page": "/api/transactions/sync-category",
+      "regex": "^/api/transactions/sync\\-category(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/transactions/sync\\-category(?:/)?$"
+    },
+    {
+      "page": "/api/webhook",
+      "regex": "^/api/webhook(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/webhook(?:/)?$"
+    },
+    {
+      "page": "/categories",
+      "regex": "^/categories(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/categories(?:/)?$"
+    },
+    {
+      "page": "/favicon.ico",
+      "regex": "^/favicon\\.ico(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/favicon\\.ico(?:/)?$"
+    },
+    {
+      "page": "/login",
+      "regex": "^/login(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/login(?:/)?$"
+    },
+    {
+      "page": "/recurrences",
+      "regex": "^/recurrences(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/recurrences(?:/)?$"
+    },
+    {
+      "page": "/transactions",
+      "regex": "^/transactions(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/transactions(?:/)?$"
+    }
+  ],
+  "dataRoutes": [],
+  "rsc": {
+    "header": "rsc",
+    "varyHeader": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+    "prefetchHeader": "next-router-prefetch",
+    "didPostponeHeader": "x-nextjs-postponed",
+    "contentTypeHeader": "text/x-component",
+    "suffix": ".rsc",
+    "prefetchSuffix": ".prefetch.rsc",
+    "prefetchSegmentHeader": "next-router-segment-prefetch",
+    "prefetchSegmentSuffix": ".segment.rsc",
+    "prefetchSegmentDirSuffix": ".segments",
+    "clientParamParsing": false,
+    "dynamicRSCPrerender": false
+  },
+  "rewriteHeaders": {
+    "pathHeader": "x-nextjs-rewritten-path",
+    "queryHeader": "x-nextjs-rewritten-query"
+  }
+}

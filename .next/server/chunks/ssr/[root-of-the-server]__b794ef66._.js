@@ -1,0 +1,3 @@
+module.exports=[64433,a=>{a.v({className:"inter_5972bc34-module__OU16Qa__className"})},12440,a=>{"use strict";var b=a.i(74131),c=a.i(64433);let d={className:c.default.className,style:{fontFamily:"'Inter', 'Inter Fallback'",fontStyle:"normal"}};null!=c.default.variable&&(d.variable=c.default.variable);let e={title:"Dashboard Financeiro",description:"Gerencie suas finanças em um só lugar",metadataBase:new URL(process.env.NEXT_PUBLIC_APP_URL||"http://localhost:3000")};function f({children:a}){return(0,b.jsx)("html",{lang:"pt-BR",suppressHydrationWarning:!0,children:(0,b.jsx)("body",{className:d.className,suppressHydrationWarning:!0,children:a})})}a.s(["default",()=>f,"metadata",0,e],12440)}];
+
+//# sourceMappingURL=%5Broot-of-the-server%5D__b794ef66._.js.map
