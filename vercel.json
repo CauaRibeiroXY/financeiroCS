@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "regions": ["gru1"],
+  "functions": {
+    "src/app/api/**/*.ts": {
+      "memory": 1024,
+      "maxDuration": 30
+    }
+  }
+  ,
+  "crons": [
+    {
+      "path": "/api/cron/pluggy-sync",
+      "schedule": "0 0 * * *"
+    }
+  ]
+}
