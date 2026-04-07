@@ -44,10 +44,10 @@ export async function syncItemData(itemId: string): Promise<void> {
     // fetch the account again.
     for (const account of accounts) {
       try {
+        await syncTransactionData(account);
+
         if (account.type === 'CREDIT' || account.creditData) {
           await syncCreditCardBillData(account);
-        } else {
-          await syncTransactionData(account);
         }
       } catch (error) {
         const idStr = typeof account.id === 'string' ? account.id : String(account.id);
