@@ -356,7 +356,9 @@
     "zod-validation-error": "^4.0.2",
     "zoid": "^9.0.63"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "@tailwindcss/postcss":"^4.1.17"
+  },
   "scripts": {
   "dev": "next dev",
   "build": "next build",
