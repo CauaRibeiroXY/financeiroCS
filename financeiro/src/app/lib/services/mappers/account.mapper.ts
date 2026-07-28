@@ -20,9 +20,24 @@ export function mapAccountFromPluggyToDb(account: Account, itemId: string): Omit
     owner: account.owner || undefined,
     tax_number: account.taxNumber || undefined,
     bank_data: account.bankData as AccountRecord['bank_data'] || undefined,
-    credit_data: account.creditData as AccountRecord['credit_data'] || undefined,
+    
+    // Mapeamento explícito tratando os 'null' da Pluggy para 'undefined'
+    credit_data: account.creditData ? {
+      level: account.creditData.level ?? undefined,
+      brand: account.creditData.brand ?? undefined,
+      balance_close_date: account.creditData.balanceCloseDate instanceof Date 
+        ? account.creditData.balanceCloseDate.toISOString() 
+        : (account.creditData.balanceCloseDate ?? undefined),
+      balance_due_date: account.creditData.balanceDueDate instanceof Date 
+        ? account.creditData.balanceDueDate.toISOString() 
+        : (account.creditData.balanceDueDate ?? undefined),
+      available_credit_limit: account.creditData.availableCreditLimit ?? undefined,
+      balance_foreign_currency: account.creditData.balanceForeignCurrency ?? undefined,
+      minimum_payment: account.creditData.minimumPayment ?? undefined,
+      credit_limit: account.creditData.creditLimit ?? undefined,
+    } : undefined,
+    
     disaggregated_credit_limits: undefined,
     icon_url: typeof imageUrlRaw === 'string' ? imageUrlRaw : undefined,
   };
 }
-

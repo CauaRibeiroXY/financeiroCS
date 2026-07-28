@@ -3,7 +3,7 @@
 import useSWR from 'swr';
 import { useMemo } from 'react';
 import { useItems } from './useItems';
-import type { AccountRecord, TransactionRecord, CreditCardBillRecord } from '@/app/types/pluggy';
+import type { AccountRecord, TransactionRecord, CreditCardBillRecord, InvestmentRecord } from '@/app/types/pluggy';
 
 interface AccountsResponse {
   success: boolean;
@@ -20,6 +20,11 @@ interface BillsResponse {
   data: { results: CreditCardBillRecord[] };
 }
 
+interface InvestmentsResponse {
+  success: boolean;
+  data: { results: InvestmentRecord[] };
+}
+
 export interface CategoryData {
   name: string;
   current: number;
@@ -29,11 +34,14 @@ export interface CategoryData {
 
 export interface DashboardData {
   patrimony: number;
+  totalInvestments: number;
+  availableCredit: number;
   totalIncome: number;
   totalExpenses: number;
   partialResult: number;
   allTransactions: TransactionRecord[];
   allAccounts: AccountRecord[];
+  allInvestments: InvestmentRecord[];
   categories: CategoryData[];
   spendingByDay: { day: number; current: number | null; previous: number }[];
   allBills: CreditCardBillRecord[];
@@ -44,7 +52,6 @@ export interface DashboardData {
 // Internal hook to fetch accounts for multiple items in parallel
 function useAllAccountsForItems(itemIds: string[]) {
   const urls = itemIds.map((id) => `/api/accounts?itemId=${id}&pageSize=200`);
-  // Build a stable key
   const key = itemIds.length > 0 ? urls.join('|') : null;
 
   const { data, error, isLoading } = useSWR<AccountsResponse[]>(
@@ -129,6 +136,33 @@ function useAllBillsForAccounts(accountIds: string[]) {
   return { allBills, isLoading, isError: !!error };
 }
 
+// Internal hook to fetch investments for multiple items in parallel
+function useAllInvestmentsForItems(itemIds: string[]) {
+  const urls = itemIds.map((id) => `/api/investments?itemId=${id}&pageSize=200`);
+  const key = itemIds.length > 0 ? urls.join('|') : null;
+
+  const { data, error, isLoading } = useSWR<InvestmentsResponse[]>(
+    key,
+    async () => {
+      const results = await Promise.all(
+        urls.map((url) =>
+          fetch(url)
+            .then((r) => r.json())
+            .catch(() => ({ success: false, data: { results: [] } }))
+        )
+      );
+      return results;
+    }
+  );
+
+  const allInvestments: InvestmentRecord[] = useMemo(() => {
+    if (!data) return [];
+    return data.flatMap((r) => r?.data?.results ?? []);
+  }, [data]);
+
+  return { allInvestments, isLoading, isError: !!error };
+}
+
 export function useDashboardData(): DashboardData {
   const { items, isLoading: itemsLoading, isError: itemsError } = useItems();
 
@@ -162,8 +196,14 @@ export function useDashboardData(): DashboardData {
     isError: billsError,
   } = useAllBillsForAccounts(creditAccountIds);
 
-  const isLoading = itemsLoading || accountsLoading || txLoading || billsLoading;
-  const isError = itemsError || accountsError || txError || billsError;
+  const {
+    allInvestments,
+    isLoading: invLoading,
+    isError: invError,
+  } = useAllInvestmentsForItems(itemIds);
+
+  const isLoading = itemsLoading || accountsLoading || txLoading || billsLoading || invLoading;
+  const isError = itemsError || accountsError || txError || billsError || invError;
 
   // Compute aggregated data
   const patrimony = useMemo(
@@ -173,6 +213,30 @@ export function useDashboardData(): DashboardData {
         .reduce((sum, a) => sum + (a.balance ?? 0), 0),
     [allAccounts]
   );
+
+  const totalInvestments = useMemo(
+    () =>
+      allInvestments.reduce((sum, inv) => sum + (inv.balance ?? 0), 0),
+    [allInvestments]
+  );
+
+  const availableCredit = useMemo(() => {
+    return allAccounts
+      .filter((a) => a.type === 'CREDIT')
+      .reduce((sum, a) => {
+        // Usa 'as any' para o TypeScript parar de achar que é um objeto '{}'
+        const creditData = a.credit_data as any; 
+        
+        // Converte o resultado garantidamente para Number
+        const limit = Number(
+          creditData?.available_credit_limit ?? 
+          creditData?.availableCreditLimit ?? 
+          0
+        );
+        
+        return sum + (isNaN(limit) ? 0 : limit);
+      }, 0);
+  }, [allAccounts]);
 
   const now = new Date();
   const currentMonth = now.getMonth();
@@ -344,11 +408,14 @@ export function useDashboardData(): DashboardData {
 
   return {
     patrimony,
+    totalInvestments,
+    availableCredit,
     totalIncome,
     totalExpenses,
     partialResult,
     allTransactions,
     allAccounts,
+    allInvestments,
     categories,
     spendingByDay,
     allBills,

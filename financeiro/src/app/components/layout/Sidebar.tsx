@@ -10,6 +10,7 @@ import {
   ChevronRight,
   Tags,
   RefreshCw,
+  Target,
 } from 'lucide-react';
 import { cn } from '@/app/lib/utils/cn';
 import { useItems } from '@/app/hooks/useItems';
@@ -38,6 +39,11 @@ const navItems: NavItem[] = [
     href: '/transactions',
     icon: <ArrowUpDown size={18} />,
   },
+  {
+  label: 'Gestor de Metas',
+  href: '/goals',
+  icon: <Target size={18} />,
+},
   {
     label: 'Contas',
     href: '/accounts',

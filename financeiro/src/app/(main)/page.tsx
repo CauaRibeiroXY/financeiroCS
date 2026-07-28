@@ -12,6 +12,8 @@ import { useItems } from '@/app/hooks/useItems';
 export default function DashboardPage() {
   const {
     patrimony,
+    totalInvestments, // <-- Nova variável puxada do hook
+    availableCredit,  // <-- Nova variável puxada do hook
     totalIncome,
     totalExpenses,
     partialResult,
@@ -71,6 +73,7 @@ export default function DashboardPage() {
               />
               <PatrimonyCard
                 patrimony={patrimony}
+                totalInvestments={totalInvestments} // <-- Passando a prop nova
                 isLoading={isLoading}
                 hasData={!isLoading && items.length > 0}
               />
@@ -81,6 +84,7 @@ export default function DashboardPage() {
               <CreditCardBillCard
                 bills={allBills}
                 accounts={allAccounts}
+                availableCredit={availableCredit} // <-- Passando a prop nova
                 isLoading={isLoading}
               />
               <CategoryList

@@ -12,14 +12,17 @@ const periods: Period[] = ['1D', '1W', '1M', '3M', 'YTD', '1Y', 'ALL'];
 
 interface PatrimonyCardProps {
   patrimony: number;
+  totalInvestments: number; // Nova propriedade adicionada
   isLoading: boolean;
   hasData?: boolean;
 }
 
-export function PatrimonyCard({ patrimony, isLoading, hasData = true }: PatrimonyCardProps) {
+export function PatrimonyCard({ patrimony, totalInvestments, isLoading, hasData = true }: PatrimonyCardProps) {
   const [activePeriod, setActivePeriod] = useState<Period>('1W');
 
   if (isLoading) return <SkeletonCard />;
+
+  const totalGeral = patrimony + totalInvestments;
 
   return (
     <div className="rounded-xl border border-[#30363d] bg-[#161b22] p-5 flex flex-col gap-4">
@@ -36,12 +39,18 @@ export function PatrimonyCard({ patrimony, isLoading, hasData = true }: Patrimon
       {/* Value */}
       <div>
         <p className="text-[#e6edf3] text-3xl font-bold">
-          {formatCurrency(patrimony)}
+          {formatCurrency(totalGeral)}
         </p>
-        <div className="flex items-center gap-2 mt-2">
-          <span className="text-[#8b949e] text-xs px-2 py-0.5 rounded border border-[#30363d]">
-            --
-          </span>
+        <div className="flex items-center gap-4 mt-3 border-t border-[#30363d] pt-3">
+          <div>
+            <p className="text-[#8b949e] text-xs mb-0.5">Em Conta</p>
+            <p className="text-[#e6edf3] text-sm font-medium">{formatCurrency(patrimony)}</p>
+          </div>
+          <div className="w-px h-6 bg-[#30363d]"></div>
+          <div>
+            <p className="text-[#8b949e] text-xs mb-0.5">Investimentos</p>
+            <p className="text-[#e6edf3] text-sm font-medium">{formatCurrency(totalInvestments)}</p>
+          </div>
         </div>
       </div>
 

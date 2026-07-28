@@ -9,10 +9,11 @@ import type { CreditCardBillRecord, AccountRecord } from '@/app/types/pluggy';
 interface CreditCardBillCardProps {
     bills: CreditCardBillRecord[];
     accounts: AccountRecord[];
+    availableCredit: number; // Nova propriedade adicionada
     isLoading: boolean;
 }
 
-export function CreditCardBillCard({ bills, accounts, isLoading }: CreditCardBillCardProps) {
+export function CreditCardBillCard({ bills, accounts, availableCredit, isLoading }: CreditCardBillCardProps) {
     if (isLoading) return <SkeletonCard />;
 
     const now = new Date();
@@ -56,11 +57,17 @@ export function CreditCardBillCard({ bills, accounts, isLoading }: CreditCardBil
                 </Link>
             </div>
 
-            {/* Value */}
-            <div>
+            {/* Value & Available Credit */}
+            <div className="flex flex-col">
                 <p className="text-[#e6edf3] text-3xl font-bold leading-none">
                     {formatCurrency(totalAmount)}
                 </p>
+                <div className="mt-2 flex items-center gap-1.5">
+                    <span className="text-[#8b949e] text-xs">Limite disponível:</span>
+                    <span className="text-[#3fb950] text-sm font-medium">
+                        {formatCurrency(availableCredit)}
+                    </span>
+                </div>
             </div>
 
             {/* Bills List */}
