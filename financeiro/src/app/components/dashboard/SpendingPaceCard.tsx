@@ -18,20 +18,50 @@ import { SkeletonCard } from '@/app/components/shared/Skeleton';
 
 interface SpendingPaceCardProps {
   currentExpenses: number;
+  /** Total do período anterior, inteiro */
   previousExpenses: number;
+  /**
+   * Total do período anterior **até o mesmo ponto**. É contra este valor que a
+   * comparação é feita: medir o mês em andamento contra o mês anterior inteiro
+   * faz todo dia 5 parecer economia.
+   */
+  previousExpensesToDate?: number;
   spendingByDay: { day: number; current: number | null; previous: number }[];
+  title?: string;
+  /** "mês passado" ou "fatura anterior" — depende do recorte ativo */
+  comparisonLabel?: string;
+  currentLabel?: string;
+  /** "Dia" ou "Dia do ciclo" */
+  dayLabel?: string;
   isLoading: boolean;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function ChartTooltip({ active, payload }: any) {
+function ChartTooltip({
+  active,
+  payload,
+  currentLabel,
+  comparisonLabel,
+  dayLabel,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload: { day: number; current: number | null; previous: number } }>;
+  currentLabel: string;
+  comparisonLabel: string;
+  dayLabel: string;
+}) {
   if (!active || !payload?.length) return null;
   const data = payload[0]?.payload;
   return (
     <div className="rounded-lg border border-[#30363d] bg-[#21262d] px-3 py-2 text-xs shadow-xl">
-      <p className="text-[#e6edf3] font-medium mb-1">Dia {data?.day}</p>
-      <p className="text-[#f85149]">Este mês: {formatCurrency(data?.current ?? 0)}</p>
-      <p className="text-[#8b949e]">Mês passado: {formatCurrency(data?.previous ?? 0)}</p>
+      <p className="text-[#e6edf3] font-medium mb-1">
+        {dayLabel} {data?.day}
+      </p>
+      <p className="text-[#f85149]">
+        {currentLabel}: {formatCurrency(data?.current ?? 0)}
+      </p>
+      <p className="text-[#8b949e]">
+        {comparisonLabel}: {formatCurrency(data?.previous ?? 0)}
+      </p>
     </div>
   );
 }
@@ -39,18 +69,26 @@ function ChartTooltip({ active, payload }: any) {
 export function SpendingPaceCard({
   currentExpenses,
   previousExpenses,
+  previousExpensesToDate,
   spendingByDay,
+  title = 'Ritmo de Gastos',
+  comparisonLabel = 'Mês passado',
+  currentLabel = 'Este mês',
+  dayLabel = 'Dia',
   isLoading,
 }: SpendingPaceCardProps) {
   if (isLoading) return <SkeletonCard />;
 
-  const variation =
-    previousExpenses > 0
-      ? ((currentExpenses - previousExpenses) / previousExpenses) * 100
-      : 0;
+  // A base da comparação é o mesmo ponto do período anterior; o total inteiro
+  // só entra como fallback para quem ainda não passa esse dado.
+  const comparisonBase = previousExpensesToDate ?? previousExpenses;
+  const isPartial = comparisonBase < previousExpenses;
 
-  const isAbove = currentExpenses > previousExpenses;
-  const differenceAbs = Math.abs(currentExpenses - previousExpenses);
+  const variation =
+    comparisonBase > 0 ? ((currentExpenses - comparisonBase) / comparisonBase) * 100 : 0;
+
+  const isAbove = currentExpenses > comparisonBase;
+  const differenceAbs = Math.abs(currentExpenses - comparisonBase);
   const lineColor = isAbove ? '#f85149' : '#3fb950';
 
   let maxCurrent = 0;
@@ -78,7 +116,7 @@ export function SpendingPaceCard({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-[#8b949e] text-xs font-semibold uppercase tracking-wider">
-            Ritmo de Gastos
+            {title}
           </span>
           <Info size={13} className="text-[#8b949e]" />
         </div>
@@ -87,29 +125,32 @@ export function SpendingPaceCard({
         </Link>
       </div>
 
-      {/* Value */}
+      {/* Total gasto no período */}
       <div>
         <p className="text-[#e6edf3] text-3xl font-bold leading-none">
-          {formatCurrency(differenceAbs)}{' '}
-          <span className="text-base font-normal text-[#8b949e]">
-            {isAbove ? 'acima' : 'abaixo'}
-          </span>
+          {formatCurrency(currentExpenses)}
         </p>
       </div>
 
-      {/* Variation */}
-      <div className="flex items-center gap-2">
-        <span
-          className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${isAbove
-            ? 'bg-[#f85149]/20 text-[#f85149]'
-            : 'bg-[#3fb950]/20 text-[#3fb950]'
+      {/* Comparação, sempre contra o mesmo ponto do período anterior */}
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span
+            className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
+              isAbove ? 'bg-[#f85149]/20 text-[#f85149]' : 'bg-[#3fb950]/20 text-[#3fb950]'
             }`}
-        >
-          {isAbove ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-          {formatPercentage(variation)}
-        </span>
-        <span className="text-[#8b949e] text-xs">
-          vs {formatCurrency(previousExpenses)} mês anterior
+          >
+            {isAbove ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+            {formatCurrency(differenceAbs)} {isAbove ? 'acima' : 'abaixo'}
+          </span>
+          <span className="text-[#8b949e] text-xs">
+            {formatPercentage(variation)} vs {formatCurrency(comparisonBase)}
+          </span>
+        </div>
+        <span className="text-[#8b949e] text-[11px]">
+          {isPartial
+            ? `até o mesmo ponto d${comparisonLabel.toLowerCase().startsWith('fatura') ? 'a' : 'o'} ${comparisonLabel.toLowerCase()}`
+            : `${comparisonLabel.toLowerCase()}, período completo`}
         </span>
       </div>
 
@@ -138,7 +179,15 @@ export function SpendingPaceCard({
               domain={[0, yAxisMax]}
               allowDataOverflow={true}
             />
-            <Tooltip content={<ChartTooltip />} />
+            <Tooltip
+              content={
+                <ChartTooltip
+                  currentLabel={currentLabel}
+                  comparisonLabel={comparisonLabel}
+                  dayLabel={dayLabel}
+                />
+              }
+            />
             <Area
               type="monotone"
               dataKey="current"
@@ -183,11 +232,11 @@ export function SpendingPaceCard({
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-0.5" style={{ backgroundColor: lineColor }} />
-          <span className="text-[#8b949e] text-xs">Este mês</span>
+          <span className="text-[#8b949e] text-xs">{currentLabel}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-0.5 bg-[#8b949e] border-dashed border border-[#8b949e]" />
-          <span className="text-[#8b949e] text-xs">Mês passado</span>
+          <span className="text-[#8b949e] text-xs">{comparisonLabel}</span>
         </div>
       </div>
     </div>

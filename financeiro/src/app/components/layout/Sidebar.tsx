@@ -11,6 +11,7 @@ import {
   Tags,
   RefreshCw,
   Target,
+  TrendingUp,
 } from 'lucide-react';
 import { cn } from '@/app/lib/utils/cn';
 import { useItems } from '@/app/hooks/useItems';
@@ -44,6 +45,11 @@ const navItems: NavItem[] = [
   href: '/goals',
   icon: <Target size={18} />,
 },
+  {
+    label: 'Investimentos',
+    href: '/investments',
+    icon: <TrendingUp size={18} />,
+  },
   {
     label: 'Contas',
     href: '/accounts',

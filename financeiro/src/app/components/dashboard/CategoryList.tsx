@@ -4,24 +4,39 @@ import { ArrowUpRight, TrendingUp, TrendingDown } from 'lucide-react';
 import Link from 'next/link';
 import { formatCurrency, formatPercentage } from '@/app/lib/utils/format';
 import { SkeletonCategoryRow } from '@/app/components/shared/Skeleton';
-import type { CategoryData } from '@/app/hooks/useDashboardData';
+
+/** Declarado aqui de propósito: importar de `useDashboardData` acoplaria o card
+ *  a um hook que a Visão Geral não usa mais. */
+export interface CategoryData {
+  name: string;
+  current: number;
+  previous: number;
+  color: string;
+}
 
 interface CategoryListProps {
   categories: CategoryData[];
+  /** Ex.: "fatura de ago/26" — o "atual" muda de significado por recorte */
+  subtitle?: string;
   isLoading: boolean;
 }
 
-export function CategoryList({ categories, isLoading }: CategoryListProps) {
+export function CategoryList({ categories, subtitle, isLoading }: CategoryListProps) {
   const maxAmount = Math.max(...categories.map((c) => c.current), 1);
 
   return (
     <div className="rounded-xl border border-[#30363d] bg-[#161b22] p-5 flex flex-col gap-3">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <span className="text-[#8b949e] text-xs font-semibold uppercase tracking-wider">
-          Principais Categorias
-        </span>
-        <Link href="/transactions" className="flex items-center gap-1 text-[#58a6ff] text-xs hover:underline">
+        <div className="flex items-baseline gap-2 min-w-0">
+          <span className="text-[#8b949e] text-xs font-semibold uppercase tracking-wider">
+            Principais Categorias
+          </span>
+          {subtitle && (
+            <span className="text-[#8b949e] text-[11px] truncate">· {subtitle}</span>
+          )}
+        </div>
+        <Link href="/transactions" className="flex items-center gap-1 text-[#58a6ff] text-xs hover:underline shrink-0">
           Ver mais <ArrowUpRight size={12} />
         </Link>
       </div>
