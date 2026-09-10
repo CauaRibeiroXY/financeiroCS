@@ -1,4 +1,5 @@
 import { getPluggyClient } from '../pluggy/client';
+import { fetchAllTransactionsV2 } from '../pluggy/transactions-v2';
 import { accountsService } from './accounts';
 import { investmentsService } from './investments';
 import { investmentTransactionsService } from './investment-transactions';
@@ -32,7 +33,23 @@ import { mapTransactionFromPluggyToDb } from './mappers/transaction.mapper';
 
 const pluggyClient = getPluggyClient();
 
-export async function syncItemData(itemId: string): Promise<void> {
+export interface SyncFailure {
+  scope: string;
+  message: string;
+}
+
+export async function syncItemData(itemId: string): Promise<SyncFailure[]> {
+  // Falhas por conta não abortam o item inteiro — mas também não podem sumir.
+  // Antes o catch abaixo só fazia console.error, então uma conta que não
+  // gravava nenhuma transação era indistinguível de um sync bem-sucedido.
+  const failures: SyncFailure[] = [];
+
+  const record = (scope: string, error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    failures.push({ scope, message });
+    console.error(`[syncItemData] falha em ${scope}:`, error);
+  };
+
   try {
     // First, sync account data and keep the returned list of accounts.
     // this avoids a second call to /accounts when we already have them in memory.
@@ -43,22 +60,30 @@ export async function syncItemData(itemId: string): Promise<void> {
     // The account object is passed along so subscribers don't need to
     // fetch the account again.
     for (const account of accounts) {
+      const idStr = typeof account.id === 'string' ? account.id : String(account.id);
+
       try {
         await syncTransactionData(account);
-
-        if (account.type === 'CREDIT' || account.creditData) {
-          await syncCreditCardBillData(account);
-        }
       } catch (error) {
-        const idStr = typeof account.id === 'string' ? account.id : String(account.id);
-        console.error(`Error syncing data for account ${idStr}:`, error);
+        record(`transactions:${idStr}`, error);
+      }
+
+      if (account.type === 'CREDIT' || account.creditData) {
+        try {
+          await syncCreditCardBillData(account);
+        } catch (error) {
+          record(`bills:${idStr}`, error);
+        }
       }
     }
 
-    // Sync investment and loan data
-    await syncInvestmentData(itemId);
-    await syncLoanData(itemId);
-    await syncIdentityData(itemId);
+    // Investimentos, empréstimos e identidade: cada um isolado, para que um
+    // produto ausente no conector não derrube os demais.
+    try { await syncInvestmentData(itemId); } catch (error) { record('investments', error); }
+    try { await syncLoanData(itemId); }       catch (error) { record('loans', error); }
+    try { await syncIdentityData(itemId); }   catch (error) { record('identity', error); }
+
+    return failures;
   } catch (error) {
     console.error(`Error syncing data for item ${itemId}:`, {
       error: error instanceof Error ? error.message : String(error),
@@ -208,27 +233,13 @@ export async function syncTransactionData(accountOrId: string | Account): Promis
   const accountId = typeof accountOrId === 'string' ? accountOrId : String(accountOrId.id);
 
   try {
-    let page = 1;
-    const allTransactions: TransactionRecord[] = [];
-    let hasMore = true;
+    // Usa o /v2/transactions diretamente: o `fetchTransactions` do SDK aponta
+    // para o endpoint antigo, que a Pluggy descontinuou (410 Gone).
+    const rawTransactions = await fetchAllTransactionsV2(accountId);
 
-    while (hasMore) {
-      const transactionsResponse: any = await pluggyClient.fetchTransactions(accountId, {
-        page,
-        pageSize: 500, // Maximum recommended by Pluggy for performance
-      });
-
-      if (transactionsResponse?.results && transactionsResponse.results.length > 0) {
-        const transactionsToSave = transactionsResponse.results.map((txn: Transaction) =>
-          mapTransactionFromPluggyToDb(txn, accountId) as TransactionRecord
-        );
-        allTransactions.push(...transactionsToSave);
-      }
-
-      // Check if there are more pages
-      hasMore = transactionsResponse?.results?.length === 500;
-      page++;
-    }
+    const allTransactions: TransactionRecord[] = rawTransactions.map(
+      (txn: Transaction) => mapTransactionFromPluggyToDb(txn, accountId) as TransactionRecord
+    );
 
     if (allTransactions.length > 0) {
       // de‑duplicate by transaction_id to keep the payload smaller and

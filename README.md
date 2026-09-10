@@ -1,4 +1,4 @@
-# Financeiro — Painel de Controle Financeiro Pessoal com Pluggy!
+# Financeiro — Painel de Controle Financeiro Pessoal com Pluggy
 
 <p align="center">
   <img alt="Next.js" src="https://img.shields.io/badge/Next.js-16-black?logo=next.js&logoColor=white" />
@@ -13,256 +13,113 @@
 
 ## Descrição
 
-**Financeiro** é um painel de controle financeiro pessoal full-stack que conecta contas bancárias reais via **Open Finance** (API Pluggy) e consolida transações, investimentos, faturas e empréstimos em uma interface dark-mode unificada. O sistema sincroniza dados automaticamente via webhooks e cron jobs diários, permitindo que o usuário acompanhe patrimônio, gastos por categoria, faturas de cartão de crédito e detecte automaticamente despesas recorrentes — tudo em tempo real e sem a necessidade de inserir dados manualmente.
-
----
+**Financeiro** é um painel de controle financeiro pessoal full-stack que conecta contas bancárias reais via **Open Finance** (API Pluggy) e consolida transações, investimentos, faturas e empréstimos em uma interface dark-mode unificada. O sistema sincroniza dados automaticamente via webhooks e cron jobs diários, permitindo acompanhar patrimônio, gastos por categoria, faturas de cartão de crédito, metas e despesas recorrentes — sem inserção manual de dados.
 
 ## Contexto do Projeto
 
-O projeto nasceu da necessidade de ter uma visão consolidada e automatizada das finanças pessoais, integrando múltiplas contas bancárias e cartões de crédito em um único lugar. A solução utiliza o ecossistema de **Open Finance brasileiro** (regulamentado pelo Banco Central) por meio da API **Pluggy**, que permite a conexão segura com centenas de instituições financeiras sem armazenar credenciais bancárias. O objetivo central é oferecer controle financeiro completo — patrimônio, gastos, recorrências e investimentos — com dados sempre atualizados automaticamente.
+O projeto nasceu da necessidade de ter uma visão consolidada e automatizada das finanças pessoais, integrando múltiplas contas bancárias e cartões em um único lugar. A solução usa o ecossistema de **Open Finance brasileiro** (regulamentado pelo Banco Central) por meio da API **Pluggy**, que conecta com centenas de instituições financeiras sem armazenar credenciais bancárias.
 
 ---
 
-## Tecnologias Utilizadas
+# Parte 1 — Guia de instalação do zero
 
-### Linguagens
-- **TypeScript 5** — tipagem estática em todo o projeto (frontend e backend)
-- **TSX / React JSX** — componentes de interface
+> Esta seção assume que você não tem nada configurado: nem conta na Pluggy, nem
+> projeto no Supabase, nem deploy. Siga na ordem — cada passo depende do anterior.
 
-### Frameworks e Runtime
-- **Next.js 16** (App Router) — framework full-stack com SSR, API Routes e Middleware
-- **React 19** — biblioteca de UI com hooks modernos
-
-### Estilização
-- **Tailwind CSS 4** — utilitários de estilo com tema dark customizado
-- **Lucide React** — biblioteca de ícones SVG
-
-### Banco de Dados
-- **Supabase (PostgreSQL)** — banco de dados relacional gerenciado na nuvem, acesso via service role key com `@supabase/supabase-js ^2.86`
-
-### API Externa — Open Finance
-- **Pluggy SDK (`pluggy-sdk ^0.79`)** — SDK oficial para conexão com contas bancárias via Open Finance brasileiro
-- **React Pluggy Connect (`react-pluggy-connect ^2.11`)** — widget oficial de conexão de contas (OAuth flow embutido)
-
-### Gerenciamento de Estado e Dados
-- **SWR (`swr ^2.4`)** — busca de dados com cache, revalidação automática e deduplicação de requisições
-- **React `useMemo` / `useState` / `useEffect`** — gerenciamento de estado local e computações memoizadas
-
-### Gráficos e Visualização
-- **Recharts (`recharts ^3.7`)** — gráficos de linha e área para o dashboard de gastos por dia
-
-### Validação e HTTP
-- **Zod (`zod ^4.1`)** — validação de schemas em runtime
-- **Axios (`axios ^1.13`)** — cliente HTTP para chamadas à API interna
-- **`jsonwebtoken ^9.0`** — manipulação de JWT (suporte a tokens de autenticação)
-
-### Infraestrutura e Deploy
-- **Vercel** — plataforma de deploy com serverless functions, region `gru1` (São Paulo), memory 1024MB por função
-- **Vercel Cron Jobs** — job diário (`0 0 * * *`) para sincronização automática de dados com a Pluggy
-- **Next.js Middleware** — proteção de rotas via cookie `httpOnly`
-
-### Ferramentas de Build e Qualidade
-- **ESLint 9** com `eslint-config-next` e `eslint-config-prettier`
-- **Prettier 3** — formatação automática de código
-- **PostCSS** — processamento de CSS com suporte ao Tailwind
-
----
-
-## Arquitetura e Estrutura do Projeto
-
-### Padrão Arquitetural
-
-O projeto adota uma arquitetura **modular em camadas**, inspirada em princípios de **Clean Architecture** e **separação de responsabilidades**, dentro da estrutura do Next.js App Router:
+## Visão geral do processo
 
 ```
-[Pluggy API] ──webhook──► [Next.js API Routes] ──► [Services Layer] ──► [Supabase DB]
-                                                           │
-[Browser] ──fetch (SWR)──► [Next.js API Routes] ──► [Services Layer] ──► [Supabase DB]
+1. Pluggy    → obter Client ID e Client Secret
+2. Supabase  → criar projeto e aplicar supabase_schema.sql
+3. Local     → clonar, configurar .env.local, rodar
+4. Conectar  → ligar a primeira conta bancária pelo app
+5. Vercel    → importar repositório, configurar env vars, deploy
+6. Webhook   → apontar NEXT_PUBLIC_APP_URL para o domínio e redeploy
+7. Verificar → conferir se as tabelas populam
 ```
 
-**Fluxo principal:**
-1. O usuário conecta uma conta bancária pelo widget **Pluggy Connect** embutido na sidebar.
-2. A Pluggy dispara um **webhook** (`/api/webhook`) notificando novos dados disponíveis.
-3. O `item-sync.service.ts` busca contas, transações, investimentos, empréstimos e identidade na Pluggy SDK e persiste no Supabase via **upsert** (idempotente).
-4. Um **Cron Job diário** (`/api/cron/pluggy-sync`) repete o processo de sincronização para todos os itens cadastrados, garantindo dados frescos mesmo sem webhooks.
-5. O frontend consome dados exclusivamente pela camada de **API Routes internas** do Next.js, usando **SWR** para cache e revalidação automática.
-6. Toda a computação de métricas (patrimônio, gastos, categorias, recorrências) é feita **no frontend com `useMemo`**, mantendo a API agnóstica de apresentação.
+Tempo estimado: 30–45 minutos.
 
-### Organização das Pastas
+## Requisitos
 
-```
-src/
-├── middleware.ts                  # Proteção de rotas via cookie httpOnly "auth"
-└── app/
-    ├── layout.tsx                 # Layout raiz com providers globais
-    ├── (main)/                    # Grupo de rotas protegidas (layout com Sidebar)
-    │   ├── page.tsx               # Dashboard principal
-    │   ├── transactions/          # Listagem e paginação de transações
-    │   ├── accounts/              # Contas bancárias e cartões de crédito
-    │   ├── categories/            # Categorização manual de transações
-    │   └── recurrences/           # Detecção automática de recorrências
-    ├── login/                     # Página de login (rota pública)
-    ├── api/                       # API Routes do Next.js (backend serverless)
-    │   ├── login/                 # POST: autenticação por senha, gera cookie httpOnly
-    │   ├── logout/                # POST: limpa cookie de autenticação
-    │   ├── token/                 # GET/POST: geração de Connect Token da Pluggy
-    │   ├── webhook/               # POST: recepção de eventos da Pluggy
-    │   ├── accounts/              # GET/DELETE: leitura e remoção de contas
-    │   ├── transactions/          # GET: listagem de transações por conta
-    │   ├── bills/                 # GET: faturas de cartão de crédito
-    │   ├── items/                 # GET/DELETE: itens (conexões bancárias)
-    │   ├── categories/            # GET/POST/PUT: categorias e regras
-    │   ├── investments/           # GET: investimentos
-    │   ├── loans/                 # GET: empréstimos
-    │   ├── identity/              # GET: dados de identidade do usuário
-    │   └── cron/pluggy-sync/      # GET: sincronização diária (Vercel Cron)
-    ├── components/                
-    │   ├── layout/Sidebar.tsx     # Navegação lateral colapsável com ConnectButton
-    │   ├── dashboard/             # SpendingPaceCard, PatrimonyCard, CategoryList, etc.
-    │   ├── transactions/          # TransactionTable com paginação
-    │   ├── recurrences/           # RecurrenceSummaryCard, RecurrenceList
-    │   ├── shared/               # ConnectButton, SyncButton, Skeleton
-    │   └── AuthGuard.tsx         # Guarda de autenticação client-side (legado)
-    ├── hooks/                     # Custom React Hooks (SWR wrappers)
-    │   ├── useDashboardData.ts    # Orquestra accounts + transactions + bills
-    │   ├── useAllTransactions.ts  # Paginação de transações para listagem
-    │   ├── useRecurrences.ts      # Busca e análise de recorrências
-    │   ├── useCategories.ts       # Listagem de categorias e regras
-    │   ├── useItems.ts            # Itens conectados à Pluggy
-    │   ├── useAccounts.ts         # Contas por item
-    │   └── useIdentity.ts         # Dados de identidade do titular
-    ├── lib/
-    │   ├── pluggy/client.ts       # Singleton do PluggyClient (server-side)
-    │   ├── supabase/client.ts     # Singleton do Supabase Admin Client
-    │   ├── services/              # Camada de serviços (acesso ao banco de dados)
-    │   │   ├── item-sync.service.ts   # Orquestrador principal de sincronização
-    │   │   ├── recurrence.ts          # Algoritmo de detecção de recorrências
-    │   │   ├── accounts.ts            # CRUD de contas no Supabase
-    │   │   ├── transactions.ts        # CRUD de transações
-    │   │   ├── investments.ts         # CRUD de investimentos
-    │   │   ├── loans.ts               # CRUD de empréstimos
-    │   │   ├── identity.ts            # CRUD de identidade
-    │   │   ├── credit-card-bills.ts   # CRUD de faturas
-    │   │   ├── items.ts               # CRUD de itens
-    │   │   ├── mappers/               # Funções puras: Pluggy SDK → DB schema
-    │   │   └── webhook-handlers/      # Handlers por tipo de evento webhook
-    │   └── utils/                 # Utilitários transversais
-    │       ├── api.ts             # Instância Axios configurada
-    │       ├── cn.ts              # Utility `cn()` para classes condicionais
-    │       ├── error-handler.ts   # HOF `withErrorHandling` para API Routes
-    │       ├── format.ts          # Formatação de moeda, data, iniciais
-    │       ├── pagination.ts      # Lógica de paginação
-    │       └── validation.ts      # Helpers de validação com Zod
-    └── types/
-        ├── pluggy.ts              # Interfaces TypeScript para todos os modelos de dados
-        └── api.ts                 # Tipos genéricos de resposta da API
-```
-
-### Padrões Utilizados
-- **Singleton Pattern**: clientes Pluggy e Supabase instanciados uma única vez (server-side)
-- **Mapper Pattern**: conversão isolada entre tipos do SDK externo e schema do banco de dados
-- **Custom Hooks**: toda lógica de busca e estado encapsulada em hooks reutilizáveis
-- **SWR revalidation**: cache inteligente com revalidação por chave derivada dos IDs
-- **Higher-Order Function**: `withErrorHandling` envolve handlers de API para tratar erros de forma centralizada
-- **Upsert Pattern**: todas as escritas no Supabase são idempotentes (`ON CONFLICT DO UPDATE`)
+- **Node.js 20+** e npm
+- Conta na [Pluggy](https://pluggy.ai) (o plano gratuito atende)
+- Conta no [Supabase](https://supabase.com)
+- Conta na [Vercel](https://vercel.com) (só para o passo 5)
+- Git
 
 ---
 
-## Funcionalidades Principais
+## Passo 1 — Pluggy
 
-### 📊 Dashboard Principal
-- **Patrimônio total**: soma de saldos de contas correntes e de pagamento
-- **Resultado parcial do mês**: receitas menos despesas do mês atual
-- **Ritmo de gastos diários**: gráfico de área comparando gastos acumulados do mês atual vs. mês anterior (Recharts)
-- **Gastos por categoria**: top 10 categorias do mês atual e anterior, com tradução automática para português
-- **Faturas de cartão de crédito**: listagem de faturas abertas por cartão
+1. Crie uma conta em [dashboard.pluggy.ai](https://dashboard.pluggy.ai).
+2. Vá em **Applications** e copie o **Client ID** e o **Client Secret**.
+3. Guarde os dois. Eles são usados **só no servidor** — nunca vão para o browser.
 
-### 💳 Contas e Cartões
-- Visualização de contas bancárias, contas de pagamento e cartões de crédito
-- Detalhes por conta: saldo, limite disponível, vencimento da fatura, status de sincronização
-- Remoção de contas com revalidação automática de cache (SWR mutate)
-- Exibição de logotipos dos bancos e indicador de sincronização
+Não configure o webhook ainda. A URL só existe depois do deploy (passo 6).
 
-### 📋 Transações
-- Listagem paginada de todas as transações de todas as contas conectadas
-- Filtro por conta específica
-- Paginação client-side com 50 transações por página
-- Exibição de categoria, tipo (DÉBITO/CRÉDITO), data e valor formatado em BRL
+**Teste rápido de que as credenciais valem** (PowerShell):
 
-### 🏷️ Categorização
-- Criação de categorias personalizadas
-- Criação de regras por descrição de comerciante
-- Aplicação em lote via função SQL `sync_transaction_category()` no Supabase
-- Recategorização retroativa de transações já existentes
+```powershell
+$body = @{ clientId = 'SEU_CLIENT_ID'; clientSecret = 'SEU_CLIENT_SECRET' } | ConvertTo-Json
+Invoke-RestMethod -Uri 'https://api.pluggy.ai/auth' -Method Post -Body $body -ContentType 'application/json'
+```
 
-### 🔁 Detecção de Recorrências (Algoritmo Proprietário)
-- Análise automática dos últimos 3 meses de transações DEBIT
-- Agrupamento por descrição normalizada (remoção de ruído: dígitos, caracteres especiais)
-- Detecção e exclusão de transferências internas cross-account (e.g., PIX entre contas próprias)
-- Classificação de frequência: **semanal** (≤10 dias), **mensal** (11–50 dias), **anual** (300–400 dias) ou **irregular**
-- Cálculo de custo médio, equivalente mensal e data da última ocorrência
-- Total mensal comprometido (soma dos equivalentes mensais de todas as recorrências detectadas)
-
-### 🔐 Autenticação e Segurança
-- Login por senha com `httpOnly cookie` (7 dias de sessão)
-- Middleware do Next.js que protege todas as rotas não-públicas
-- Redirecionamento automático para `/login` com parâmetro `from` para retorno após autenticação
-- Senha armazenada como variável de ambiente no servidor (nunca exposta ao cliente)
-- Rotas da API do cron (`/api/webhook`, `/api/login`) explicitamente excluídas da proteção
-
-### 🔄 Sincronização Automática
-- **Webhook handler** (`/api/webhook`): processa eventos `item/updated`, `transactions/created`, `transactions/updated`, entre outros
-- **Cron Job diário** (meia-noite): sincroniza todos os itens com `Promise.allSettled` (falhas parciais não impedem os demais)
-- Suporte a paginação de transações (500 por página) e de transações de investimentos
-- Deduplicação de transações por `transaction_id` antes do upsert
+Deve retornar um `apiKey` (JWT longo). Um `403` significa credenciais erradas — normalmente espaço ou quebra de linha colada junto.
 
 ---
 
-## Integrações e APIs
+## Passo 2 — Supabase
 
-### Pluggy (Open Finance)
-A integração central do projeto. O **Pluggy** é uma plataforma de Open Finance que agrega dados de centenas de bancos e corretoras brasileiras de forma segura, sem armazenar credenciais do usuário.
+1. Em [supabase.com](https://supabase.com), crie um **New project**. Escolha a região **South America (São Paulo)** para casar com o `gru1` da Vercel.
+2. Guarde a senha do Postgres que ele pede.
+3. Vá em **Project Settings → API** e copie:
+   - **Project URL** → `https://xxxx.supabase.co`
+   - A chave **`service_role`** (a *secret*, **não** a `anon`)
 
-- **Autenticação**: `PLUGGY_CLIENT_ID` + `PLUGGY_CLIENT_SECRET` (server-side apenas)
-- **Widget**: `react-pluggy-connect` renderizado de forma dinâmica (SSR desabilitado)
-- **Connect Token**: gerado no backend (`/api/token`) e passado ao widget client-side — nunca expostos as credenciais principais
-- **Dados coletados**: contas, transações, faturas de crédito, investimentos, transações de investimento, empréstimos, identidade do titular
-- **Webhook URL**: registrada na Pluggy para receber eventos em tempo real
+### Aplicar o schema
 
-### Supabase (PostgreSQL)
-Banco de dados principal do projeto, utilizado exclusivamente com `service_role_key` no servidor para operações administrativas.
+Abra o **SQL Editor** do Supabase, cole o conteúdo inteiro de
+[`financeiro/supabase_schema.sql`](financeiro/supabase_schema.sql) e execute.
 
-- Tabelas principais: `items`, `accounts`, `transactions`, `credit_card_bills`, `investments`, `investment_transactions`, `loans`, `identity`, `categories`, `category_rules`
-- Scripts SQL incluídos: `supabase_setup_categorization.sql`, `supabase_add_account_icon.sql`
-- Funções SQL: `sync_transaction_category()`, `process_uncategorized_transactions()`
+Esse arquivo é a **única fonte de verdade** do banco. Ele cria as 14 tabelas, os índices, as duas funções RPC, os triggers de `updated_at` e habilita RLS. Ele começa com um bloco de `DROP TABLE ... CASCADE`, então:
 
-### Vercel
-- Deploy contínuo a partir do repositório
-- Serverless Functions configuradas com 1024MB de memória e timeout de 30s
-- Cron Jobs nativos da Vercel (configurados em `vercel.json`)
-- CDN de imagens com suporte a AVIF e WebP, domínio permitido: `cdn.pluggy.ai`
+> ⚠️ **Rodar o schema apaga todos os dados.** Use apenas para criar do zero ou recriar deliberadamente.
+
+Os scripts avulsos antigos (`supabase_setup_categorization.sql`, `supabase_add_account_icon.sql`, `supabase_accounts_is_ignored.sql`, `supabase_fixed_expenses_v2.sql`) foram **absorvidos** por ele e não devem mais ser executados.
+
+### Verificar
+
+No fim do `supabase_schema.sql` há duas queries comentadas (seção 11). Rode a segunda: ela lista as constraints únicas. **Toda** tabela que recebe `upsert` precisa de uma — sem ela o erro é `42P10`. O resultado esperado inclui:
+
+| Tabela | Constraint única em |
+|---|---|
+| `pluggy_items` | `item_id` |
+| `accounts` | `account_id` |
+| `transactions` | `transaction_id` |
+| `credit_card_bills` | `bill_id` |
+| `investments` | `investment_id` |
+| `investment_transactions` | `transaction_id` |
+| `loans` | `loan_id` |
+| `identities` | `identity_id` |
+| `goal_snapshots` | `(goal_id, snapshot_date)` |
+| `fixed_expense_payments` | `(expense_key, period)` |
 
 ---
 
-## Como Executar o Projeto
-
-### Requisitos
-- **Node.js 20+**
-- **npm** (incluso com Node.js)
-- Conta na [Pluggy](https://pluggy.ai) (Client ID e Client Secret)
-- Projeto no [Supabase](https://supabase.com) (URL e Service Role Key)
-
-### 1. Clone o repositório e instale as dependências
+## Passo 3 — Rodar local
 
 ```bash
-git clone <url-do-repositorio>
-cd cslabs/financeiro
+git clone https://github.com/ThigasSantos/FinancasCS.git
+cd FinancasCS/financeiro
 npm install
 ```
 
-### 2. Configure as variáveis de ambiente
+> **Atenção à pasta.** A aplicação Next.js fica em `financeiro/`, não na raiz do
+> repositório. Todos os comandos npm rodam de dentro dela. Isso também determina
+> a configuração da Vercel no passo 5.
 
-Crie o arquivo `.env.local` na raiz do projeto (`cslabs/financeiro/`) com as seguintes variáveis:
+Crie `financeiro/.env.local`:
 
 ```env
 # Supabase
@@ -273,136 +130,497 @@ SUPABASE_SERVICE_ROLE_KEY=sua-service-role-key
 PLUGGY_CLIENT_ID=seu-client-id
 PLUGGY_CLIENT_SECRET=seu-client-secret
 
-# Autenticação da aplicação (senha de acesso ao painel)
+# Senha de acesso ao painel
 APP_PASSWORD=sua-senha-segura
+
+# Em desenvolvimento, deixe COMENTADO. Ver "Webhook em desenvolvimento".
+# NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
-
-### 3. Configure o banco de dados
-
-Execute os scripts SQL no painel do Supabase (SQL Editor):
-
-```sql
--- 1. Categorização
--- Cole e execute o conteúdo de: supabase_setup_categorization.sql
-
--- 2. Ícone de conta
--- Cole e execute o conteúdo de: supabase_add_account_icon.sql
-```
-
-> **Nota**: Crie manualmente as tabelas `items`, `accounts`, `transactions`, `credit_card_bills`, `investments`, `investment_transactions`, `loans` e `identity` conforme os tipos definidos em `src/app/types/pluggy.ts`.
-
-### 4. Configure o Webhook na Pluggy
-
-No painel da Pluggy, registre a URL de webhook apontando para:
-```
-https://seu-dominio.vercel.app/api/webhook
-```
-
-### 5. Inicie o servidor de desenvolvimento
 
 ```bash
 npm run dev
 ```
 
-Acesse [http://localhost:3000](http://localhost:3000) e insira a senha configurada em `APP_PASSWORD`.
+Acesse [http://localhost:3000](http://localhost:3000) e entre com a `APP_PASSWORD`.
+Se a 3000 estiver ocupada, o Next sobe na 3001 — repare na porta que ele imprime.
 
-### Comandos disponíveis
+**Sanidade:** a sidebar tem um botão **"Testar Supabase"**. Ele chama `/api/health/supabase`, que consulta as tabelas principais e mostra latência e erro exato. Se ficar verde, banco e credenciais estão certos.
+
+---
+
+## Passo 4 — Conectar a primeira conta
+
+1. Na sidebar, clique em **Conectar conta**. Abre o widget Pluggy Connect.
+2. Escolha o banco e autentique.
+3. Aguarde: a Pluggy carrega contas primeiro e transações depois. Sincronizar cedo demais popula `accounts` e deixa `transactions` vazio.
+
+**Como saber que terminou:**
+
+```powershell
+# $h = @{ 'X-API-KEY' = <apiKey do passo 1> }
+$item = Invoke-RestMethod -Uri "https://api.pluggy.ai/items/SEU_ITEM_ID" -Headers $h
+$item | Select-Object status, executionStatus
+```
+
+Espere `status = UPDATED` e `executionStatus = SUCCESS`. Só então:
+
+4. Clique em **Sincronizar agora** na sidebar (ou chame `GET /api/cron/pluggy-sync`).
+
+A resposta traz `failures` — um array vazio significa sucesso completo. Se vier preenchido, cada entrada tem `scope` e `message` com o erro real.
+
+---
+
+## Passo 5 — Deploy na Vercel
+
+1. Faça push do seu código para o GitHub.
+2. Em [vercel.com/new](https://vercel.com/new), importe o repositório.
+3. **Root Directory: `financeiro`** ← passo crítico. Sem isso o build falha, porque o `package.json` do Next está no subdiretório.
+4. Framework: Next.js (detecta sozinho). Node.js Version: **22.x**.
+5. Em **Environment Variables**, adicione as 5 do `.env.local` (`NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `PLUGGY_CLIENT_ID`, `PLUGGY_CLIENT_SECRET`, `APP_PASSWORD`) marcando Production, Preview e Development.
+6. Adicione também **`CRON_SECRET`** com um valor aleatório longo. O Vercel Cron o envia como `Authorization: Bearer <valor>`, e é assim que o middleware distingue o agendador de um visitante qualquer.
+
+   ```powershell
+   # gera um valor aleatório
+   [Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Max 256 }))
+   ```
+
+   > **Sem `CRON_SECRET`, o cron diário falha com 401.** A sincronização manual
+   > pelo botão continua funcionando, porque ela usa o cookie de sessão.
+
+7. **Deploy.**
+
+O [`financeiro/vercel.json`](financeiro/vercel.json) já define região `gru1`, 1024MB e timeout de 30s por função, além do cron diário. Se o build reclamar do bloco `functions` ou de `regions`, remova-os — as rotas já declaram `maxDuration` individualmente.
+
+> **Não esqueça de commitar.** Alterações locais não versionadas não vão para a
+> Vercel. É a causa mais comum de "funciona local, não funciona em produção" —
+> confira com `git status` antes de investigar qualquer outra coisa.
+
+---
+
+## Passo 6 — Webhook
+
+Existe uma dependência circular: a URL do webhook é montada a partir de `NEXT_PUBLIC_APP_URL`, mas o domínio só existe depois do deploy.
+
+1. Copie o domínio gerado (ex.: `https://financas-cs.vercel.app`).
+2. Na Vercel, adicione `NEXT_PUBLIC_APP_URL` = esse domínio, **sem barra no final**.
+3. **Redeploy.** Variáveis `NEXT_PUBLIC_` são embutidas no bundle durante o build — salvar sem rebuildar não tem efeito.
+4. No dashboard da Pluggy, registre o webhook global: `https://seu-dominio.vercel.app/api/webhook`.
+
+### Webhook em desenvolvimento
+
+**A Pluggy só aceita webhook em `https`.** Em localhost não há como registrar — o [`/api/token`](financeiro/src/app/api/token/route.ts) omite a `webhookUrl` de propósito quando a URL não é `https`.
+
+Existe uma variável `ENABLE_HTTP_WEBHOOK=true` que força o envio mesmo em `http`. **Ela não funciona** — a Pluggy responde `400 Webhook url must be a https secured url` e o `/api/token` inteiro falha com 500. Deixe-a desativada; ela só serve para diagnóstico.
+
+Se precisar testar webhooks localmente, use um túnel https:
+
+```bash
+npx localtunnel --port 3000     # ou ngrok http 3000
+```
+
+E aponte `NEXT_PUBLIC_APP_URL` para a URL do túnel.
+
+---
+
+## Passo 7 — Verificação final
+
+```powershell
+$U = 'https://seu-projeto.supabase.co'
+$K = 'sua-service-role-key'
+$h = @{ apikey = $K; Authorization = "Bearer $K" }
+
+$tabelas = @{ pluggy_items='item_id'; accounts='account_id'; transactions='transaction_id';
+              credit_card_bills='bill_id'; investments='investment_id';
+              investment_transactions='transaction_id'; identities='identity_id' }
+
+foreach ($t in $tabelas.Keys) {
+  $r = Invoke-RestMethod -Uri "$U/rest/v1/$t`?select=$($tabelas[$t])" -Headers $h
+  Write-Host ("{0,-26} {1}" -f $t, @($r).Count)
+}
+```
+
+`accounts` e `transactions` devem estar populadas. As demais dependem do que o
+banco conectado expõe — ver "O que é normal vir vazio".
+
+---
+
+# Parte 2 — Referência
+
+## Variáveis de ambiente
+
+| Variável | Onde | Obrigatória | Descrição |
+|---|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | servidor + build | ✅ | URL do projeto Supabase. Pública por natureza. |
+| `SUPABASE_SERVICE_ROLE_KEY` | **servidor** | ✅ | Chave `service_role`. Ignora RLS — **nunca** prefixe com `NEXT_PUBLIC_`. |
+| `PLUGGY_CLIENT_ID` | **servidor** | ✅ | Credencial da aplicação Pluggy. |
+| `PLUGGY_CLIENT_SECRET` | **servidor** | ✅ | Credencial da aplicação Pluggy. |
+| `APP_PASSWORD` | **servidor** | ✅ | Senha única de acesso ao painel. |
+| `NEXT_PUBLIC_APP_URL` | build | produção | Domínio https. Monta a `webhookUrl` do connect token e restringe a origem do CORS. Exige redeploy ao mudar. |
+| `CRON_SECRET` | **servidor** | produção | Segredo que o Vercel Cron envia como `Authorization: Bearer`. **Sem ela o cron agendado falha com 401.** |
+| `ENABLE_HTTP_WEBHOOK` | servidor | ❌ | Força webhook em `http`. **A Pluggy rejeita** — deixe desativada. |
+
+Os clientes fazem `throw` no boot se faltar variável: `Missing NEXT_PUBLIC_SUPABASE_URL` ([supabase/client.ts](financeiro/src/app/lib/supabase/client.ts)) e `Missing Pluggy credentials` ([pluggy/client.ts](financeiro/src/app/lib/pluggy/client.ts)). O erro aparece nos Runtime Logs da Vercel.
+
+## Banco de dados
+
+Schema completo em [`financeiro/supabase_schema.sql`](financeiro/supabase_schema.sql), organizado em 11 seções.
+
+**Tabelas alimentadas pela Pluggy:** `pluggy_items`, `accounts`, `transactions`, `credit_card_bills`, `investments`, `investment_transactions`, `loans`, `identities`
+
+**Tabelas do aplicativo:** `categories`, `category_rules`, `goals`, `goal_snapshots`, `fixed_expenses`, `fixed_expense_payments`
+
+**Funções RPC:** `sync_transaction_category(uuid, text)` e `process_uncategorized_transactions()`, chamadas por [`domain/categorization.ts`](financeiro/src/app/domain/categorization.ts).
+
+### Decisões de modelagem
+
+- **Sem CHECK em enum vindo da Pluggy.** Um valor novo do lado deles viraria erro de constraint e derrubaria a ingestão inteira. Os CHECKs ficam só nas tabelas do app.
+- **NOT NULL só onde o mapper comprovadamente escreve.** Campo obrigatório demais em tabela de API externa = sync quebrado.
+- **FKs com `ON DELETE CASCADE`.** Sem isso, `DELETE /api/items?itemId=` falha por violação de chave estrangeira assim que o item tem contas.
+- **RLS habilitada, sem policies.** O app acessa tudo pela `service_role`, que ignora RLS. Sem policy, `anon` e `authenticated` não leem nada — o que protege caso a URL pública seja usada com uma anon key.
+- **`transactions.category_id` é `TEXT` sem FK.** A coluna tem dois donos: recebe o `categoryId` da Pluggy no sync (`'04000000'`) e o UUID de `categories` quando você recategoriza pela interface.
+
+### Contas espelhadas
+
+Alguns bancos exportam o mesmo cartão duas vezes com nomes diferentes. Cada cópia tem `account_id` próprio, então o upsert não resolve — limite e fatura saem **dobrados**.
+
+> ⚠️ **Não copie um `UPDATE` pronto daqui.** Quais contas são espelho depende do
+> seu banco. Marcar a conta errada faz um cartão legítimo sumir dos cálculos,
+> silenciosamente.
+
+**1. Veja o que existe:**
+
+```sql
+SELECT account_id, name, marketing_name, balance, is_ignored,
+       credit_data->>'credit_limit'           AS limite,
+       credit_data->>'available_credit_limit' AS disponivel,
+       credit_data->>'balance_due_date'       AS vence,
+       (SELECT COUNT(*) FROM public.transactions t
+          WHERE t.account_id = a.account_id)  AS lancamentos
+FROM public.accounts a
+WHERE type = 'CREDIT'
+ORDER BY name;
+```
+
+Duas linhas com o **mesmo limite e mesmo vencimento** são o mesmo plástico. Normalmente uma delas tem bem menos lançamentos — mantenha a que tem mais.
+
+**2. Marque a cópia pelo `account_id` específico**, nunca por padrão de nome:
+
+```sql
+UPDATE public.accounts SET is_ignored = TRUE
+WHERE account_id = 'o-id-da-copia';
+```
+
+**3. Para reverter:** `UPDATE public.accounts SET is_ignored = FALSE WHERE is_ignored;`
+
+Existe uma rede de segurança em [`dedupeMirroredBills`](financeiro/src/app/lib/services/ledger-source.ts), que descarta faturas com mesmo vencimento e mesmo valor até o centavo. Ela não cobre o caso em que o ciclo vem defasado entre as duas cópias — daí a marcação manual.
+
+## Sincronização
+
+Três gatilhos, todos convergindo para `syncItemData()` em [`item-sync.service.ts`](financeiro/src/app/lib/services/item-sync.service.ts):
+
+| Gatilho | Rota | Quando |
+|---|---|---|
+| Webhook | `POST /api/webhook` | A Pluggy avisa que há dados novos (só produção) |
+| Cron | `GET /api/cron/pluggy-sync` | Diário, 00:00 UTC (21h BRT), via `vercel.json` |
+| Manual | mesma rota, ou botão "Sincronizar agora" | Sob demanda |
+
+Sincronizar um item específico: `GET /api/cron/pluggy-sync?itemId=<uuid>`.
+
+**Ordem interna:** contas → (por conta) transações e faturas → investimentos → empréstimos → identidade. Contas são gravadas primeiro; por isso `accounts` populada com o resto vazio indica falha nas etapas seguintes, não na conexão.
+
+**Falhas são reportadas, não engolidas.** Cada etapa é isolada — uma conta com erro não impede as outras — mas todas as falhas voltam no JSON:
+
+```json
+{ "ok": false, "started": 1,
+  "failures": [ { "scope": "transactions:9afbc323-...", "message": "..." } ] }
+```
+
+## Integração com a Pluggy — notas importantes
+
+### O endpoint de transações v1 foi descontinuado
+
+O `pluggy-sdk` (0.79.0) chama `GET /transactions?accountId=`, que a Pluggy **descontinuou**. Hoje ele responde **`410 Gone` com corpo vazio** — sem mensagem de erro, o que torna o diagnóstico difícil.
+
+O substituto é `GET /v2/transactions`, com paginação por cursor. Como o SDK ainda não o expõe, o projeto o chama diretamente em
+[`src/app/lib/pluggy/transactions-v2.ts`](financeiro/src/app/lib/pluggy/transactions-v2.ts).
+
+Diferenças entre v1 e v2:
+
+| | v1 (morto) | v2 |
+|---|---|---|
+| Paginação | `page` + `pageSize` | cursor no campo `next` |
+| Tamanho da página | `pageSize` até 500 | definido pelo servidor — `pageSize`/`limit` retornam **400** |
+| Filtro de data | `from` / `to` | `dateFrom` / `dateTo` |
+| Outros filtros | — | `createdAtFrom`, `ids` |
+| Envelope | `{ results, page, totalPages, totalRecords }` | `{ results, next }` |
+
+Os **campos de cada transação são idênticos** nas duas versões, então os mappers não mudaram.
+
+Todos os pontos de acesso foram migrados. Se você adicionar código novo que busca transações, use `fetchAllTransactionsV2` — **não** `pluggyClient.fetchTransactions`. Quando o SDK passar a expor o v2, o módulo pode ser removido.
+
+### Outros endpoints
+
+`accounts`, `bills`, `investments`, `loans` e `identity` continuam pelo SDK normalmente. A descontinuação afetou apenas transações.
+
+---
+
+# Parte 3 — Diagnóstico
+
+> Esta seção é o atalho para os problemas que já custaram tempo. Comece sempre
+> pela camada mais baixa: se a Pluggy não tem o dado, não adianta olhar o banco.
+
+## Roteiro em camadas
+
+```
+0. Credenciais valem?          → POST https://api.pluggy.ai/auth
+1. App gera connect token?     → POST /api/token
+2. Item terminou de carregar?  → GET https://api.pluggy.ai/items/{id}
+3. Pluggy tem transações?      → GET https://api.pluggy.ai/v2/transactions?accountId=
+4. Banco aceita a escrita?     → botão "Testar Supabase" ou upsert direto
+5. O código está no ar?        → git status
+```
+
+> **As rotas do app exigem sessão.** Para inspecionar `/api/...` pelo navegador,
+> faça login primeiro na mesma aba — o cookie vai junto. Um **401** com
+> `{"error":"Não autenticado"}` significa que falta o login, não que a rota
+> está quebrada. As chamadas diretas à `api.pluggy.ai` usam a apiKey da Pluggy
+> e independem disso.
+
+## Sintomas e causas
+
+### `accounts` populou, `transactions` vazio
+
+O sintoma mais comum. Em ordem de probabilidade:
+
+1. **O item ainda não terminou de carregar.** A Pluggy popula contas antes de transações. Confira `statusDetail.transactions.isUpdated` em `GET /items/{id}`.
+2. **Código desatualizado em produção.** Se funciona local e não na Vercel, rode `git status` — alterações não commitadas não sobem.
+3. **Endpoint v1 sendo usado.** Se alguma chamada nova usar `pluggyClient.fetchTransactions`, ela leva `410`. Use `fetchAllTransactionsV2`.
+4. **Timeout na Vercel.** Ver abaixo.
+
+Rode o sync e leia o `failures` da resposta — desde a mudança de reporte de erros, ele diz exatamente qual etapa falhou.
+
+### `42P10 — there is no unique or exclusion constraint matching the ON CONFLICT`
+
+Falta a constraint única na coluna alvo do `onConflict`. Rode a query de verificação da seção 11 do schema e compare com a tabela do passo 2.
+
+### `PGRST205` / `PGRST204`
+
+`PGRST205` = tabela não existe. `PGRST204` = coluna não existe. Nos dois casos, o schema não foi aplicado por completo — reaplique o `supabase_schema.sql`.
+
+### `Webhook url must be a https secured url`
+
+`ENABLE_HTTP_WEBHOOK=true` com `NEXT_PUBLIC_APP_URL` em `http`. Desative a variável. Ver "Webhook em desenvolvimento".
+
+### Timeout na Vercel
+
+O [`vercel.json`](financeiro/vercel.json) limita funções a **30 segundos**, e o cron sincroniza **todos** os itens em paralelo esperando todos (`Promise.allSettled`). Com muitas contas e centenas de transações, estoura — a função é morta no meio e o banco fica parcialmente populado. Localmente não há esse teto, o que explica "funciona local, falha em produção".
+
+Saídas: sincronizar item a item (`?itemId=`) na primeira carga, ou aumentar `maxDuration`.
+
+### Snapshots de metas falhando a partir do dia 2 do mês
+
+O schema antigo tinha um índice único **mensal** em `goal_snapshots` convivendo com a constraint diária que o cron usa no `onConflict`. Os dois se anulavam. O `supabase_schema.sql` atual removeu o mensal — **não o recrie**.
+
+## O que é normal vir vazio
+
+Nem toda tabela precisa popular:
+
+- **`investments`, `investment_transactions`, `loans`** — só se o banco expõe esses produtos. Conta corrente simples retorna vazio, sem erro.
+- **`identities`** — o 404 é silenciado de propósito; vários conectores não expõem identidade.
+- **`credit_card_bills`** — só para contas `type = 'CREDIT'`, e apenas com faturas fechadas.
+- **`categories`, `goals`, `fixed_expenses`** — não vêm da Pluggy. São seus, criados pelo app.
+
+A que **obrigatoriamente** popula é `transactions`.
+
+## Comandos úteis
+
+```powershell
+# Ler credenciais do .env.local sem digitá-las
+$cfg = @{}
+Get-Content 'financeiro\.env.local' | ForEach-Object {
+  if ($_ -match '^\s*([A-Z_0-9]+)\s*=\s*(.*)$') { $cfg[$matches[1]] = $matches[2].Trim() }
+}
+
+# Autenticar na Pluggy
+$auth = Invoke-RestMethod -Uri 'https://api.pluggy.ai/auth' -Method Post `
+  -ContentType 'application/json' `
+  -Body (@{ clientId = $cfg['PLUGGY_CLIENT_ID']; clientSecret = $cfg['PLUGGY_CLIENT_SECRET'] } | ConvertTo-Json)
+$h = @{ 'X-API-KEY' = $auth.apiKey }
+
+# Contas e contagem de transações de um item
+$accs = Invoke-RestMethod -Uri "https://api.pluggy.ai/accounts?itemId=SEU_ITEM_ID" -Headers $h
+foreach ($a in $accs.results) {
+  $t = Invoke-RestMethod -Uri "https://api.pluggy.ai/v2/transactions?accountId=$($a.id)" -Headers $h
+  "{0,-28} {1,-8} {2} transacoes" -f $a.name, $a.type, @($t.results).Count
+}
+
+# Forçar a Pluggy a recarregar um item
+Invoke-RestMethod -Uri "https://api.pluggy.ai/items/SEU_ITEM_ID" -Method Patch `
+  -Headers ($h + @{'Content-Type'='application/json'}) -Body '{}'
+```
+
+---
+
+# Parte 4 — Referência técnica
+
+## Tecnologias
+
+**Linguagem e framework:** TypeScript 5, Next.js 16 (App Router), React 19
+**Estilo:** Tailwind CSS 4, Lucide React
+**Banco:** Supabase (PostgreSQL), `@supabase/supabase-js ^2.86`
+**Open Finance:** `pluggy-sdk ^0.79`, `react-pluggy-connect ^2.11`, chamadas diretas ao `/v2/transactions` via Axios
+**Dados no cliente:** SWR ^2.4
+**Gráficos:** Recharts ^3.7
+**Validação e HTTP:** Zod ^4.1, Axios ^1.13, `jsonwebtoken ^9.0`
+**Infra:** Vercel (serverless, região `gru1`, 1024MB, 30s), Vercel Cron, Next.js Middleware
+**Qualidade:** ESLint 9, Prettier 3, PostCSS
+
+## Arquitetura
+
+```
+[Pluggy API] ──webhook──► [API Routes] ──► [Services] ──► [Supabase]
+                                              │
+[Browser] ──SWR fetch──► [API Routes] ──► [Services] ──► [Supabase]
+```
+
+Arquitetura modular em camadas dentro do App Router. O frontend nunca fala com a Pluggy nem com o Supabase diretamente — tudo passa pelas API Routes, que atuam como BFF. As métricas (patrimônio, gastos, recorrências) são computadas no cliente com `useMemo`, mantendo a API agnóstica de apresentação.
+
+**Padrões:** Singleton (clientes Pluggy/Supabase), Mapper (SDK → schema), Custom Hooks (SWR), HOF `withErrorHandling`, Upsert idempotente.
+
+## Estrutura de pastas
+
+```
+FinancasCS/
+├── README.md
+└── financeiro/                          # ← Root Directory na Vercel
+    ├── supabase_schema.sql              # Schema completo (fonte de verdade)
+    ├── vercel.json                      # Deploy, funções e cron
+    ├── next.config.ts
+    └── src/
+        ├── middleware.ts                # Proteção de rotas via cookie httpOnly
+        └── app/
+            ├── (main)/                  # Rotas protegidas com sidebar
+            │   ├── page.tsx             # Dashboard
+            │   ├── transactions/  accounts/  categories/
+            │   ├── recurrences/   goals/     investments/
+            ├── login/
+            ├── api/
+            │   ├── login/  logout/  auth/verify/
+            │   ├── token/               # Connect Token da Pluggy
+            │   ├── webhook/             # Eventos da Pluggy
+            │   ├── cron/pluggy-sync/    # Sincronização (cron + manual)
+            │   ├── health/supabase/     # Health check do banco
+            │   ├── accounts/  transactions/  bills/  items/
+            │   ├── categories/  investments/  loans/  identity/
+            │   ├── goals/  fixed-expenses/  overview/  spending/  portfolio/
+            ├── components/
+            │   ├── layout/Sidebar.tsx
+            │   ├── shared/              # ConnectButton, SyncButton,
+            │   │                        # SupabaseStatusButton, Skeleton
+            │   ├── dashboard/  transactions/  recurrences/  investments/
+            ├── hooks/                   # Wrappers SWR
+            ├── domain/categorization.ts # Chamadas às RPCs
+            ├── lib/
+            │   ├── pluggy/client.ts         # Singleton do PluggyClient
+            │   ├── pluggy/transactions-v2.ts # Cliente do /v2/transactions
+            │   ├── supabase/client.ts       # Singleton do Supabase Admin
+            │   ├── services/                # Camada de acesso ao banco
+            │   │   ├── item-sync.service.ts # Orquestrador de sincronização
+            │   │   ├── recurrence.ts        # Detecção de recorrências
+            │   │   ├── ledger-source.ts     # Fonte consolidada de lançamentos
+            │   │   ├── mappers/             # Pluggy → schema do banco
+            │   │   └── webhook-handlers/    # Handlers por tipo de evento
+            │   └── utils/
+            └── types/
+```
+
+## Funcionalidades
+
+**Dashboard** — patrimônio total, resultado parcial do mês, ritmo de gastos diários comparando com o mês anterior, top categorias, faturas abertas.
+
+**Contas e cartões** — saldo, limite disponível, vencimento, status de sincronização, remoção com revalidação de cache. Suporte a `is_ignored` para contas espelhadas.
+
+**Transações** — listagem paginada de todas as contas, filtro por conta, formatação em BRL.
+
+**Categorização** — categorias personalizadas, regras por descrição de comerciante, aplicação em lote via RPC, recategorização retroativa.
+
+**Detecção de recorrências** — análise dos últimos meses de lançamentos DEBIT, agrupamento por descrição normalizada, exclusão de transferências internas cross-account, classificação de frequência (semanal / mensal / anual / irregular), custo médio e equivalente mensal.
+
+**Gastos fixos** — compromissos mensais manuais ou detectados, com tipos (assinatura, parcelamento, recorrente variável), término, silenciamento e baixa por período.
+
+**Metas** — alocação percentual do patrimônio, aportes externos e histórico via snapshots diários gravados pelo cron.
+
+**Investimentos** — posições, transações e projeções.
+
+## Segurança
+
+### Como funciona
+
+O [middleware](financeiro/src/middleware.ts) protege **páginas e rotas de API**. Sem o cookie `auth`:
+
+- páginas → redirecionam para `/login`
+- rotas de API → respondem **401 JSON** (não redirecionam, para o cliente não interpretar o HTML do login como sucesso)
+
+São públicas apenas quatro rotas, por caminho exato: `/api/login`, `/api/logout`, `/api/webhook` e `/api/pluggy-webhook`. As duas últimas precisam ser abertas porque a Pluggy as chama de fora, sem cookie.
+
+`/api/cron/*` aceita dois caminhos de autorização: o header `Authorization: Bearer $CRON_SECRET` (usado pelo Vercel Cron) **ou** o cookie de sessão (usado pelo botão "Sincronizar agora"). Sem `CRON_SECRET` configurada, o cron agendado recebe 401.
+
+O CORS restringe a origem a `NEXT_PUBLIC_APP_URL`. Em desenvolvimento, sem essa variável, nenhum header de CORS é emitido — front e API são mesma origem e não precisam.
+
+Também correto: a `service_role` e as credenciais da Pluggy nunca saem do servidor; o cookie é `httpOnly` + `secure` + `sameSite=strict`; o RLS está habilitado sem policies permissivas.
+
+### Limitações conhecidas
+
+- **Autenticação é uma senha única compartilhada**, sem noção de usuário. O banco não tem isolamento por `user_id` — quem entra vê tudo.
+- **As rotas de webhook não verificam a origem.** A Pluggy não assina os webhooks, e elas precisam ficar públicas. Um terceiro que descubra a URL consegue disparar sincronizações. Mitigação possível: registrar a webhook URL com um token na query string e validá-lo.
+- **O cookie não expira no servidor.** `maxAge` de 7 dias é client-side; não há revogação de sessão.
+
+### Histórico
+
+Até a correção de segurança, o matcher do middleware excluía `api/`: **toda a API respondia sem autenticação**. Qualquer pessoa com o domínio lia contas, saldos e transações, e podia disparar `/api/cron/pluggy-sync` em looping consumindo a cota da Pluggy. O `/api/auth/verify` — escrito assumindo estar atrás do middleware — retornava `success: true` para qualquer requisição.
+
+## Comandos
 
 | Comando | Descrição |
 |---|---|
-| `npm run dev` | Inicia o servidor de desenvolvimento (Next.js) |
-| `npm run build` | Gera o build de produção |
-| `npm run start` | Inicia o servidor em modo produção |
-| `npm run lint` | Executa o ESLint |
-| `npm run lint:fix` | Corrige problemas de lint automaticamente |
+| `npm run dev` | Servidor de desenvolvimento |
+| `npm run build` | Build de produção |
+| `npm run start` | Servidor em modo produção |
+| `npm run lint` | ESLint |
+| `npm run lint:fix` | ESLint com correção automática |
 
----
+Todos rodam de dentro de `financeiro/`.
 
-## Estrutura de Pastas
+## Possíveis melhorias
 
-```
-cslabs/
-├── financeiro/                   # Aplicação Next.js principal
-│   ├── src/
-│   │   ├── middleware.ts          # Proteção de rotas (Next.js Middleware)
-│   │   └── app/
-│   │       ├── (main)/           # Rotas protegidas com layout de sidebar
-│   │       ├── api/              # Backend serverless (API Routes)
-│   │       ├── components/       # Componentes React reutilizáveis
-│   │       ├── hooks/            # Custom hooks com SWR
-│   │       ├── lib/              # Serviços, utilitários e clientes de API
-│   │       └── types/            # Definições TypeScript
-│   ├── next.config.ts            # Configurações do Next.js (CORS, imagens)
-│   ├── vercel.json               # Configuração de deploy, funções e cron jobs
-│   ├── package.json              # Dependências e scripts
-│   ├── supabase_setup_categorization.sql  # Script de criação de tabelas e RPCs
-│   └── supabase_add_account_icon.sql      # Migração para adicionar coluna de ícone
-└── imagens/                      # Assets e capturas de tela do projeto
-```
-
----
-
-## Possíveis Melhorias
-
-- **Metas e orçamentos**: permitir que o usuário defina limites de gasto por categoria e receba alertas visuais
-- **Exportação de dados**: exportação de transações em CSV/PDF
-- **Gráficos de investimentos**: evolutivo de rentabilidade e alocação por tipo de ativo
-- **Suporte multi-usuário**: adicionar autenticação completa por usuário (Supabase Auth ou NextAuth) para isolar dados por conta
-- **Notificações**: alertas por e-mail ou push quando uma recorrência detectada mudar de valor ou for cobrada
-- **Testes automatizados**: ampliar cobertura de testes (a estrutura `__tests__` já existe em `lib/services`)
-- **Modo offline / PWA**: transformar em Progressive Web App para acesso sem internet
-- **Internacionalização**: suporte a múltiplas moedas e regiões além do Brasil
-- **Dashboard de empréstimos**: visualização de parcelas, juros e progresso de quitação
-- **Detecção de anomalias**: alertas automáticos para transações fora do padrão histórico do usuário
+- Proteger as rotas `/api/*` no middleware e validar `CRON_SECRET`
+- Multi-usuário com isolamento por `user_id` e RLS por policy
+- Exportação de transações em CSV/PDF
+- Notificações quando uma recorrência mudar de valor
+- Ampliar a cobertura de testes (a estrutura `__tests__` já existe em `lib/services`)
+- Detecção de anomalias em transações fora do padrão histórico
+- PWA para acesso offline
 
 ---
 
 ## Aprendizados Técnicos
 
-Este projeto demonstra e consolida os seguintes conhecimentos técnicos:
+**Integração com APIs externas (Open Finance / Pluggy)** — autenticação server-side com credenciais sensíveis, geração de tokens efêmeros para delegação client-side, paginação por cursor, processamento de webhooks com retry, e o diagnóstico de uma quebra de contrato em produção (endpoint descontinuado retornando `410` sem corpo).
 
-### Integração com APIs Externas (Open Finance / Pluggy)
-- Autenticação server-side com credenciais sensíveis (nunca expostas ao frontend)
-- Geração de tokens efêmeros (Connect Token) para delegates client-side seguros
-- Consumo de SDKs de terceiros com paginação e tratamento de múltiplos formatos de resposta
-- Processamento de webhooks com confirmação de recebimento e retry em caso de falha
+**Arquitetura full-stack com Next.js App Router** — separação servidor/cliente, API Routes como BFF, middleware antes do rendering, deploy serverless com controle de memória, timeout e cron.
 
-### Arquitetura Full-Stack com Next.js App Router
-- Separação clara entre código de servidor e cliente (`'use client'` explícito)
-- API Routes como camada de BFF (Backend for Frontend)
-- Middleware de autenticação atuando antes do rendering
-- Deploy serverless com controle de memória, timeout e cron jobs
+**Gerenciamento de estado no frontend** — SWR com chaves compostas, requisições paralelas, invalidação global de cache; memoização de cálculos sobre grandes volumes.
 
-### Gerenciamento de Estado e Dados no Frontend
-- Uso avançado de SWR: chaves compostas, múltiplas requisições paralelas com `Promise.all`, invalidação de cache com `mutate` global
-- Memoização com `useMemo` para cálculos derivados de grandes volumes de dados financeiros
-- Paginação client-side sobre dados já carregados
+**Banco relacional e Supabase** — modelagem para domínio financeiro, upserts idempotentes, RPCs em PL/pgSQL para operações em lote, `service_role` e RLS, e o aprendizado de que constraints rígidas em dados de API externa são passivo, não proteção.
 
-### Banco de Dados Relacional e Supabase
-- Modelagem de dados para domínio financeiro (contas, transações, investimentos, faturas)
-- Operações de upsert idempotentes (`ON CONFLICT DO UPDATE`)
-- Stored Procedures e RPCs em PostgreSQL para operações em lote (categorização de transações)
-- Uso de `service_role` para bypass de Row Level Security em contexto de servidor
+**Segurança web** — cookie `httpOnly`/`secure`/`sameSite`, proteção via middleware, segregação de variáveis por contexto.
 
-### Segurança de Aplicações Web
-- Autenticação sem bibliotecas externas: cookie `httpOnly`, `secure`, `sameSite=strict`
-- Proteção de rotas via Middleware sem expor lógica de autenticação ao cliente
-- Variáveis de ambiente segregadas por contexto (servidor vs. cliente)
+**Algoritmos** — detecção de séries temporais recorrentes, normalização de strings para agrupamento fuzzy, identificação de transferências internas, mediana de intervalos para classificação de frequência.
 
-### Algoritmos e Lógica de Negócio
-- Implementação de algoritmo de detecção de séries temporais recorrentes
-- Normalização de strings para agrupamento fuzzy por descrição de transação
-- Identificação de transferências internas cross-account para exclusão do análise
-- Cálculo de mediana de intervalos para classificação de frequência
-
-### Qualidade de Código
-- TypeScript estrito com interfaces detalhadas para todos os modelos de dados
-- Mapper Pattern para isolamento entre tipos de API externa e modelos internos
-- Higher-Order Functions para tratamento centralizado de erros em API Routes
-- ESLint + Prettier integrados ao workflow de desenvolvimento
+**Depuração sistemática** — isolar por camada em vez de adivinhar; tornar erros visíveis (o `catch` que só logava mascarou uma falha por dias) antes de tentar corrigi-los.
 
 ---
 
-## Palavras-chave Técnicas (Importante para ATS)
+## Palavras-chave Técnicas
 
-`TypeScript` · `Next.js` · `React` · `Tailwind CSS` · `Supabase` · `PostgreSQL` · `REST API` · `Open Finance` · `Pluggy` · `SWR` · `Recharts` · `Vercel` · `Serverless` · `Webhook` · `Cron Job` · `JWT` · `Autenticação` · `httpOnly Cookie` · `Next.js Middleware` · `App Router` · `Custom Hooks` · `useMemo` · `API Routes` · `Upsert` · `Stored Procedures` · `Axios` · `Zod` · `ESLint` · `Prettier` · `Full-Stack` · `BFF (Backend for Frontend)` · `Paginação` · `Memoização` · `Algoritmos de Detecção de Padrões` · `Séries Temporais` · `Mapper Pattern` · `Singleton Pattern` · `Deploy Automatizado` · `CI/CD` · `Lucide React` · `Módulos ES` · `Node.js`
+`TypeScript` · `Next.js` · `React` · `Tailwind CSS` · `Supabase` · `PostgreSQL` · `REST API` · `Open Finance` · `Pluggy` · `SWR` · `Recharts` · `Vercel` · `Serverless` · `Webhook` · `Cron Job` · `JWT` · `Autenticação` · `httpOnly Cookie` · `Next.js Middleware` · `App Router` · `Custom Hooks` · `useMemo` · `API Routes` · `Upsert` · `Stored Procedures` · `PL/pgSQL` · `Row Level Security` · `Axios` · `Zod` · `ESLint` · `Prettier` · `Full-Stack` · `BFF (Backend for Frontend)` · `Paginação por cursor` · `Memoização` · `Algoritmos de Detecção de Padrões` · `Séries Temporais` · `Mapper Pattern` · `Singleton Pattern` · `Deploy Automatizado` · `CI/CD` · `Lucide React` · `Node.js`

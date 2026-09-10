@@ -10,6 +10,7 @@
     "lint:fix": "eslint . --fix"
   },
   "dependencies": {
+    "@supabase/server": "^1.4.1",
     "@supabase/supabase-js": "^2.86.0",
     "axios": "^1.13.2",
     "jsonwebtoken": "^9.0.2",

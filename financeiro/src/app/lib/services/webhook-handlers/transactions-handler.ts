@@ -1,4 +1,5 @@
 import { getPluggyClient } from "../../pluggy/client";
+import { fetchAllTransactionsV2 } from "../../pluggy/transactions-v2";
 import { syncAccountData } from "../item-sync.service";
 import { transactionsService } from "../transactions";
 import { creditCardBillsService } from "../credit-card-bills";
@@ -16,31 +17,14 @@ import type {
 
 const pluggyClient = getPluggyClient();
 
-// Helper function to fetch all transactions with pagination
+// Helper function to fetch all transactions with pagination.
+// Usa o /v2/transactions: o endpoint paginado por página do SDK foi
+// descontinuado pela Pluggy e responde 410 Gone.
 async function fetchAllTransactionsWithFilter(
-  accountId: string, 
+  accountId: string,
   filters: { createdAtFrom?: string; ids?: string[] }
 ): Promise<Transaction[]> {
-  const allTransactions: Transaction[] = [];
-  let page = 1;
-  let hasMore = true;
-
-  while (hasMore) {
-    const response = await pluggyClient.fetchTransactions(accountId, {
-      ...filters,
-      page,
-      pageSize: 500
-    });
-
-    if (response.results && response.results.length > 0) {
-      allTransactions.push(...response.results);
-    }
-
-    hasMore = response.results.length === 500;
-    page++;
-  }
-
-  return allTransactions;
+  return fetchAllTransactionsV2(accountId, filters);
 }
 
 export async function handleTransactionsCreated({ accountId, itemId, transactionsCreatedAtFrom }: Extract<WebhookEventPayload, { event: 'transactions/created' }>): Promise<void> {
@@ -130,7 +114,7 @@ export async function syncTransactionData(accountOrId: string | Account): Promis
   const accountId = typeof accountOrId === 'string' ? accountOrId : String(accountOrId.id);
 
   try {
-    const allTransactions = await pluggyClient.fetchAllTransactions(accountId);
+    const allTransactions = await fetchAllTransactionsV2(accountId);
 
     if (allTransactions.length > 0) {
       const transactions: TransactionRecord[] = allTransactions.map((tx: Transaction) => 

@@ -10,8 +10,12 @@ export async function GET(req: Request) {
 
     if (itemId) {
       // sync single item (useful for manual trigger)
-      await syncItemData(itemId);
-      return NextResponse.json({ ok: true, started: 1 });
+      const failures = await syncItemData(itemId);
+      return NextResponse.json({
+        ok: failures.length === 0,
+        started: 1,
+        failures,
+      });
     }
 
     // ====================================================================
@@ -22,7 +26,14 @@ export async function GET(req: Request) {
 
     // run syncs in parallel but wait for completion so Vercel Cron knows result
     const results = await Promise.allSettled(itemIds.map(id => syncItemData(id)));
+
+    // Itens que estouraram por inteiro + falhas parciais dentro de cada item.
     const failures = results.filter(r => r.status === 'rejected').length;
+    const details = results.flatMap((r, i) =>
+      r.status === 'rejected'
+        ? [{ scope: `item:${itemIds[i]}`, message: String(r.reason) }]
+        : r.value.map(f => ({ ...f, scope: `${itemIds[i]}/${f.scope}` }))
+    );
 
     // ====================================================================
     // 2. SNAPSHOT DAS METAS (Tira a foto com os saldos atualizados)
@@ -73,10 +84,10 @@ export async function GET(req: Request) {
     // ====================================================================
     // 3. RETORNO COMBINADO
     // ====================================================================
-    return NextResponse.json({ 
-      ok: true, 
-      sync: { started: itemIds.length, failures },
-      snapshots: { saved: snapshotsSaved } 
+    return NextResponse.json({
+      ok: details.length === 0,
+      sync: { started: itemIds.length, failures, details },
+      snapshots: { saved: snapshotsSaved }
     });
 
   } catch (err) {

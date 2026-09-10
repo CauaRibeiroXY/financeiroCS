@@ -113,10 +113,9 @@ async function handleFullTransactions(request: NextRequest) {
 
     // ✅ Step 2: Fetch ALL transactions using automatic pagination
     const allTransactions = await fetchAllTransactions(
-      itemId,
+      accountId,
       from,
-      to,
-      pageSize
+      to
     );
 
     console.log(`[/api/transactions/full] Fetched ${allTransactions.length} transactions, upserting to database...`);

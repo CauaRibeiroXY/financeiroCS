@@ -21,6 +21,7 @@ import { getInitials } from '@/app/lib/utils/format';
 import React from 'react';
 import { ConnectButton } from '@/app/components/shared/ConnectButton';
 import { SyncButton } from '@/app/components/shared/SyncButton';
+import { SupabaseStatusButton } from '@/app/components/shared/SupabaseStatusButton';
 import { useSWRConfig } from 'swr';
 
 interface NavItem {
@@ -211,6 +212,10 @@ export function Sidebar() {
             'flex items-center justify-center gap-2 rounded-lg bg-[#58a6ff] text-black transition-all hover:bg-[#79b8ff] disabled:opacity-50 disabled:cursor-not-allowed',
             collapsed ? 'p-2' : 'px-4 py-2 w-full text-sm font-semibold'
           )}
+        />
+        <SupabaseStatusButton
+          iconOnly={collapsed}
+          className={cn(collapsed ? 'p-2' : 'w-full justify-center')}
         />
       </div>
     </aside>
