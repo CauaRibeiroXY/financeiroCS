@@ -36,15 +36,10 @@ const DEFAULT_MODELS: GeminiModel[] = [
     description: 'Ultra rápido e eficiente para tarefas do dia a dia',
   },
   {
-    id: 'gemini-3.1-pro',
-    name: 'Gemini 3.1 Pro',
-    description: 'Raciocínio avançado para análises financeiras profundas',
-  },
-  {
-    id: 'gemini-flash-latest',
-    name: 'Gemini Flash Latest',
-    description: 'Aponta sempre para a versão Flash mais recente (sujeito a limites de uso)',
-  },
+    id: 'gemini-3.5-flash',
+    name: 'Gemini 3.5 Flash',
+    description: 'Versão anterior estável',
+  }
 ];
 
 const SUGGESTED_PROMPTS = [
@@ -193,7 +188,10 @@ export default function AIAssistantPage() {
           }
 
           if (loadedKey) setApiKey(loadedKey);
-          if (loadedModel) setSelectedModel(loadedModel);
+          if (loadedModel) {
+            const isValidModel = DEFAULT_MODELS.some(m => m.id === loadedModel);
+            setSelectedModel(isValidModel ? loadedModel : 'gemini-3.6-flash');
+          }
           if (!loadedKey) setShowConfig(true);
         }
       } catch {
