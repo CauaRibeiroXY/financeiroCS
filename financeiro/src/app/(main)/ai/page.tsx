@@ -23,36 +23,27 @@ interface Message {
   timestamp: string;
 }
 
-const AVAILABLE_MODELS = [
-  {
-    id: 'gemini-2.5-flash',
-    name: 'Gemini 2.5 Flash',
-    desc: '⭐ Recomendado — Modelo mais moderno da geração 2.5 (Ultra-rápido, inteligente e gratuito)',
-  },
-  {
-    id: 'gemini-2.5-pro',
-    name: 'Gemini 2.5 Pro',
-    desc: '🧠 Alta Capacidade — Modelo avançado para raciocínio financeiro profundo',
-  },
-  {
-    id: 'gemini-2.0-flash',
-    name: 'Gemini 2.0 Flash',
-    desc: '⚡ Geração 2.0 — Respostas de baixa latência',
-  },
+interface GeminiModel {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+const DEFAULT_MODELS: GeminiModel[] = [
   {
     id: 'gemini-1.5-flash',
-    name: 'Gemini 1.5 Flash',
-    desc: '🔹 Geração 1.5 — Modelo leve',
+    name: 'Gemini 1.5 Flash (Recomendado)',
+    description: 'Rápido, leve e com ampla cota gratuita',
   },
   {
     id: 'gemini-1.5-pro',
     name: 'Gemini 1.5 Pro',
-    desc: '🔹 Geração 1.5 — Modelo clássico',
+    description: 'Raciocínio avançado para análises profundas',
   },
   {
-    id: 'custom',
-    name: '🛠️ Outro Modelo (Digitar ID personalizado)',
-    desc: 'Digite manualmente o código de qualquer modelo do Google AI Studio',
+    id: 'gemini-2.0-flash-exp',
+    name: 'Gemini 2.0 Flash Experimental',
+    description: 'Nova geração experimental do Gemini',
   },
 ];
 
@@ -165,8 +156,9 @@ function formatInline(text: string): React.ReactNode {
 export default function AIAssistantPage() {
   const [apiKey, setApiKey] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
-  const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
-  const [customModelInput, setCustomModelInput] = useState('');
+  const [selectedModel, setSelectedModel] = useState('gemini-1.5-flash');
+  const [availableModels, setAvailableModels] = useState<GeminiModel[]>(DEFAULT_MODELS);
+  const [fetchingModels, setFetchingModels] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
   const [configSaved, setConfigSaved] = useState(false);
   const [savingServer, setSavingServer] = useState(false);
@@ -185,9 +177,38 @@ export default function AIAssistantPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'failed'>('idle');
-  const [testErrorMessage, setTestErrorMessage] = useState<string | null>(null);
-
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Função para buscar modelos disponíveis na API do Google Gemini
+  const fetchAvailableModels = async (keyToUse?: string) => {
+    const targetKey = keyToUse || apiKey;
+    if (!targetKey.trim()) return;
+
+    setFetchingModels(true);
+    try {
+      const res = await fetch('/api/ai/models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: targetKey.trim() }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.models) && data.models.length > 0) {
+          setAvailableModels(data.models);
+          // Se o modelo selecionado atualmente não estiver na lista, seleciona o primeiro disponível
+          const exists = data.models.some((m: GeminiModel) => m.id === selectedModel);
+          if (!exists) {
+            setSelectedModel(data.models[0].id);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Erro ao buscar modelos:', err);
+    } finally {
+      setFetchingModels(false);
+    }
+  };
 
   // Carregar configurações centralizadas da API (do servidor / banco de dados)
   useEffect(() => {
@@ -196,36 +217,28 @@ export default function AIAssistantPage() {
         const res = await fetch('/api/ai/settings');
         if (res.ok) {
           const data = await res.json();
-          if (data.apiKey) setApiKey(data.apiKey);
+          let loadedKey = data.apiKey || '';
+          let loadedModel = data.model || '';
 
-          if (data.model) {
-            const isKnown = AVAILABLE_MODELS.some((m) => m.id === data.model);
-            if (isKnown) {
-              setSelectedModel(data.model);
-            } else {
-              setSelectedModel('custom');
-              setCustomModelInput(data.model);
-            }
+          if (!loadedKey) {
+            loadedKey = localStorage.getItem('gemini_api_key') || '';
+            loadedModel = localStorage.getItem('gemini_selected_model') || '';
           }
 
-          if (!data.apiKey) {
-            const localKey = localStorage.getItem('gemini_api_key') || '';
-            const localModel = localStorage.getItem('gemini_selected_model') || 'gemini-2.5-flash';
-            if (localKey) setApiKey(localKey);
-            if (localModel) {
-              const isKnown = AVAILABLE_MODELS.some((m) => m.id === localModel);
-              if (isKnown) setSelectedModel(localModel);
-              else {
-                setSelectedModel('custom');
-                setCustomModelInput(localModel);
-              }
-            }
-            if (!localKey) setShowConfig(true);
+          if (loadedKey) setApiKey(loadedKey);
+          if (loadedModel) setSelectedModel(loadedModel);
+          if (!loadedKey) setShowConfig(true);
+
+          if (loadedKey) {
+            fetchAvailableModels(loadedKey);
           }
         }
       } catch {
         const localKey = localStorage.getItem('gemini_api_key') || '';
-        if (localKey) setApiKey(localKey);
+        if (localKey) {
+          setApiKey(localKey);
+          fetchAvailableModels(localKey);
+        }
       }
     }
 
@@ -237,22 +250,14 @@ export default function AIAssistantPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
-  const getEffectiveModel = () => {
-    if (selectedModel === 'custom') {
-      return customModelInput.trim() || 'gemini-2.5-flash';
-    }
-    return selectedModel;
-  };
-
   // Salvar configurações de forma sincronizada no Servidor / Banco de Dados (funciona no PC e Celular)
   const handleSaveConfig = async () => {
     setSavingServer(true);
     setError(null);
 
-    const modelToSave = getEffectiveModel();
-
+    // Salvar também no localStorage como cache local
     localStorage.setItem('gemini_api_key', apiKey.trim());
-    localStorage.setItem('gemini_selected_model', modelToSave);
+    localStorage.setItem('gemini_selected_model', selectedModel);
 
     try {
       const res = await fetch('/api/ai/settings', {
@@ -260,7 +265,7 @@ export default function AIAssistantPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           apiKey: apiKey.trim(),
-          model: modelToSave,
+          model: selectedModel,
         }),
       });
 
@@ -269,6 +274,7 @@ export default function AIAssistantPage() {
         setTimeout(() => setConfigSaved(false), 3500);
       }
     } catch {
+      // Mesmo se o POST falhar, localstorage foi salvo
       setConfigSaved(true);
       setTimeout(() => setConfigSaved(false), 3500);
     } finally {
@@ -276,34 +282,27 @@ export default function AIAssistantPage() {
     }
   };
 
-  // Testar a conexão da chave com a API e capturar mensagem detalhada de erro
+  // Testar a conexão da chave com o endpoint
   const handleTestConnection = async () => {
     setTestStatus('testing');
-    setTestErrorMessage(null);
-    const modelToTest = getEffectiveModel();
-
     try {
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           apiKey: apiKey.trim(),
-          model: modelToTest,
+          model: selectedModel,
           messages: [{ role: 'user', content: 'Responda apenas com a palavra OK se a API estiver funcionando.' }],
         }),
       });
-
-      const data = await res.json();
 
       if (res.ok) {
         setTestStatus('success');
       } else {
         setTestStatus('failed');
-        setTestErrorMessage(data.error || 'A API do Gemini retornou uma resposta com erro.');
       }
-    } catch (err: any) {
+    } catch {
       setTestStatus('failed');
-      setTestErrorMessage(err.message || 'Erro de rede ao conectar com o servidor.');
     }
   };
 
@@ -325,15 +324,13 @@ export default function AIAssistantPage() {
     setIsLoading(true);
     setError(null);
 
-    const activeModel = getEffectiveModel();
-
     try {
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           apiKey: apiKey.trim(),
-          model: activeModel,
+          model: selectedModel,
           messages: newMessagesHistory.map((m) => ({
             role: m.role,
             content: m.content,
@@ -438,76 +435,65 @@ export default function AIAssistantPage() {
                 </p>
               </div>
 
-              {/* Seletor de Modelo */}
+              {/* Seletor de Modelo Dinâmico */}
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-[#e6edf3]">Modelo de IA:</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium text-[#e6edf3]">Modelo de IA (Obtido via API):</label>
+                  <button
+                    type="button"
+                    onClick={() => fetchAvailableModels()}
+                    disabled={fetchingModels || !apiKey.trim()}
+                    className="text-[11px] text-[#58a6ff] hover:underline disabled:opacity-50 flex items-center gap-1"
+                  >
+                    {fetchingModels && <Loader2 size={11} className="animate-spin" />}
+                    Atualizar lista da minha conta
+                  </button>
+                </div>
                 <select
                   value={selectedModel}
                   onChange={(e) => setSelectedModel(e.target.value)}
                   className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg px-3 py-2 text-xs text-[#e6edf3] focus:outline-none focus:border-[#58a6ff]"
                 >
-                  {AVAILABLE_MODELS.map((m) => (
+                  {availableModels.map((m) => (
                     <option key={m.id} value={m.id}>
-                      {m.name} — {m.desc}
+                      {m.name} ({m.id}) {m.description ? `— ${m.description}` : ''}
                     </option>
                   ))}
                 </select>
-
-                {selectedModel === 'custom' && (
-                  <div className="pt-2 space-y-1">
-                    <label className="text-[11px] text-[#8b949e]">ID do Modelo Personalizado (ex: gemini-2.5-flash):</label>
-                    <input
-                      type="text"
-                      placeholder="gemini-2.5-flash"
-                      value={customModelInput}
-                      onChange={(e) => setCustomModelInput(e.target.value)}
-                      className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg px-3 py-1.5 text-xs text-[#e6edf3] focus:outline-none focus:border-[#58a6ff] font-mono"
-                    />
-                  </div>
-                )}
                 <p className="text-[11px] text-[#8b949e]">
-                  O modelo Gemini 2.5 Flash é o mais moderno, ultra-rápido e incluído no plano gratuito.
+                  Lista atualizada dinamicamente com base nos modelos liberados para a sua chave de API.
                 </p>
               </div>
             </div>
 
             {/* Ações de Salvar e Testar */}
-            <div className="flex flex-col gap-2 pt-2">
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={handleSaveConfig}
-                  disabled={savingServer}
-                  className="bg-[#238636] hover:bg-[#2ea043] text-white px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 flex items-center gap-1.5"
-                >
-                  {savingServer && <Loader2 size={13} className="animate-spin" />}
-                  Salvar Configurações
-                </button>
-                <button
-                  onClick={handleTestConnection}
-                  disabled={!apiKey.trim() || testStatus === 'testing'}
-                  className="bg-[#21262d] hover:bg-[#30363d] border border-[#30363d] text-[#e6edf3] px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 flex items-center gap-1.5"
-                >
-                  {testStatus === 'testing' && <Loader2 size={13} className="animate-spin text-[#58a6ff]" />}
-                  Testar Conexão
-                </button>
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                onClick={handleSaveConfig}
+                disabled={savingServer}
+                className="bg-[#238636] hover:bg-[#2ea043] text-white px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {savingServer && <Loader2 size={13} className="animate-spin" />}
+                Salvar Configurações
+              </button>
+              <button
+                onClick={handleTestConnection}
+                disabled={!apiKey.trim() || testStatus === 'testing'}
+                className="bg-[#21262d] hover:bg-[#30363d] border border-[#30363d] text-[#e6edf3] px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {testStatus === 'testing' && <Loader2 size={13} className="animate-spin text-[#58a6ff]" />}
+                Testar Conexão
+              </button>
 
-                {testStatus === 'success' && (
-                  <span className="text-xs text-green-400 flex items-center gap-1">
-                    <CheckCircle2 size={14} /> Conexão OK! A chave e a API do Gemini estão funcionando perfeitamente.
-                  </span>
-                )}
-              </div>
-
+              {testStatus === 'success' && (
+                <span className="text-xs text-green-400 flex items-center gap-1">
+                  <CheckCircle2 size={14} /> Conexão OK!
+                </span>
+              )}
               {testStatus === 'failed' && (
-                <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-3 rounded-lg text-xs flex items-start gap-2 mt-1">
-                  <AlertCircle size={16} className="shrink-0 mt-0.5" />
-                  <div className="space-y-1">
-                    <span className="font-semibold block">Falha na Conexão com o Gemini:</span>
-                    <span className="block font-mono bg-[#0d1117] p-2 rounded border border-red-500/20 text-[11px] whitespace-pre-wrap">
-                      {testErrorMessage || 'Não foi possível autenticar. Verifique se a chave digitada está correta e ativa no Google AI Studio.'}
-                    </span>
-                  </div>
-                </div>
+                <span className="text-xs text-red-400 flex items-center gap-1">
+                  <AlertCircle size={14} /> Falha na conexão. Verifique a chave.
+                </span>
               )}
             </div>
           </div>
@@ -572,14 +558,9 @@ export default function AIAssistantPage() {
           )}
 
           {error && (
-            <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-3 rounded-lg text-xs flex items-start gap-2">
-              <AlertCircle size={16} className="shrink-0 mt-0.5" />
-              <div className="space-y-1">
-                <span className="font-semibold block">Erro na Comunicação com a IA:</span>
-                <span className="block font-mono bg-[#0d1117] p-2 rounded border border-red-500/20 text-[11px] whitespace-pre-wrap">
-                  {error}
-                </span>
-              </div>
+            <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-3 rounded-lg text-xs flex items-center gap-2">
+              <AlertCircle size={16} />
+              <span>{error}</span>
             </div>
           )}
 

@@ -9,7 +9,7 @@ interface ChatMessage {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { apiKey: clientApiKey, model: selectedModel, customModel, messages } = body;
+    const { apiKey: clientApiKey, model: selectedModel, messages } = body;
 
     // Usar a chave fornecida pelo cliente no painel, ou a variável de ambiente do servidor como fallback
     const apiKey = clientApiKey || process.env.GEMINI_API_KEY;
@@ -18,7 +18,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           error:
-            'Chave de API do Gemini não fornecida. Insira a sua chave no painel de configurações ou defina a variável GEMINI_API_KEY no servidor.',
+            'Chave de API do Gemini não fornecida. Por favor, insira sua chave no painel de configurações acima ou configure GEMINI_API_KEY no servidor.',
         },
         { status: 400 }
       );
@@ -26,15 +26,13 @@ export async function POST(req: Request) {
 
     if (!Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json(
-        { error: 'Formato de mensagens inválido para o histórico de chat.' },
+        { error: 'Formato de mensagens inválido.' },
         { status: 400 }
       );
     }
 
-    // Modelo selecionado pelo usuário (prioriza o modelo personalizado se fornecido, senão gemini-2.5-flash)
-    let model = (customModel && customModel.trim()) || selectedModel || 'gemini-2.5-flash';
-    if (model === 'gemini-flash') model = 'gemini-2.5-flash';
-    if (model === 'gemini-pro') model = 'gemini-2.5-pro';
+    // Modelo selecionado (removendo prefixo 'models/' se presente para evitar duplicação)
+    const targetModelClean = (selectedModel || 'gemini-1.5-flash').replace(/^models\//, '');
 
     // 1. Compilar contexto financeiro atualizado das finanças do usuário
     let financialContext = '';
@@ -78,92 +76,54 @@ REGRAS RÍGIDAS DE ATUAÇÃO:
       };
     });
 
-    // 4. Função para requisitar a API do Gemini com relatório detalhado de erros
-    const tryGeminiRequest = async (targetModel: string) => {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`;
+    // 4. Fazer a requisição HTTP para a API do Google Gemini
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${targetModelClean}:generateContent?key=${apiKey}`;
 
-      const apiResponse = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        system_instruction: {
+          parts: [{ text: systemInstruction }],
         },
-        body: JSON.stringify({
-          system_instruction: {
-            parts: [{ text: systemInstruction }],
-          },
-          contents,
-          generationConfig: {
-            temperature: 0.4,
-            maxOutputTokens: 2048,
-          },
-        }),
-      });
-
-      return apiResponse;
-    };
-
-    let response = await tryGeminiRequest(model);
-    let usedModel = model;
-
-    // Lista de fallbacks em ordem se o modelo inicial der 404
-    const fallbacks = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash', 'gemini-1.5-flash'];
-
-    if (!response.ok && response.status === 404) {
-      for (const fallbackModel of fallbacks) {
-        if (fallbackModel === model) continue;
-        console.warn(`Modelo ${model} retornou 404. Tentando fallback para ${fallbackModel}...`);
-        const fbRes = await tryGeminiRequest(fallbackModel);
-        if (fbRes.ok) {
-          response = fbRes;
-          usedModel = fallbackModel;
-          break;
-        }
-      }
-    }
+        contents,
+        generationConfig: {
+          temperature: 0.4,
+          maxOutputTokens: 2048,
+        },
+      }),
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
-      let detailMsg = errorText;
+      let parsedError = 'Erro na resposta da API do Gemini.';
       try {
         const jsonErr = JSON.parse(errorText);
-        detailMsg = jsonErr.error?.message || jsonErr.error?.status || errorText;
+        parsedError = jsonErr.error?.message || parsedError;
       } catch {}
 
       return NextResponse.json(
-        {
-          error: `Erro na API do Google Gemini (Status ${response.status}): ${detailMsg}`,
-          statusCode: response.status,
-          rawError: detailMsg,
-        },
+        { error: `Erro na API do Gemini: ${parsedError}` },
         { status: response.status }
       );
     }
 
     const data = await response.json();
     const candidate = data.candidates?.[0];
-
-    if (!candidate || !candidate.content) {
-      const finishReason = candidate?.finishReason || 'UNKNOWN';
-      return NextResponse.json(
-        {
-          error: `A API do Gemini não retornou conteúdo. Motivo do término: ${finishReason}`,
-        },
-        { status: 500 }
-      );
-    }
-
     const assistantReply =
-      candidate.content.parts?.[0]?.text ||
-      'Não foi possível extrair uma resposta em texto do modelo.';
+      candidate?.content?.parts?.[0]?.text ||
+      'Não foi possível obter uma resposta do modelo no momento.';
 
     return NextResponse.json({
       reply: assistantReply,
-      modelUsed: usedModel,
+      modelUsed: targetModelClean,
     });
   } catch (err: any) {
     console.error('Erro na rota /api/ai/chat:', err);
     return NextResponse.json(
-      { error: `Erro interno no servidor ao processar IA: ${err.message || String(err)}` },
+      { error: err.message || 'Erro interno ao processar conversa.' },
       { status: 500 }
     );
   }
