@@ -9,7 +9,7 @@ interface ChatMessage {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { apiKey: clientApiKey, model: selectedModel, messages } = body;
+    const { apiKey: clientApiKey, model: selectedModel, customModel, messages } = body;
 
     // Usar a chave fornecida pelo cliente no painel, ou a variável de ambiente do servidor como fallback
     const apiKey = clientApiKey || process.env.GEMINI_API_KEY;
@@ -31,13 +31,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // Modelo selecionado (padrão oficial canônico do Google AI Studio: gemini-1.5-flash)
-    let model = selectedModel || 'gemini-1.5-flash';
-    if (model === 'gemini-flash') {
-      model = 'gemini-1.5-flash';
-    } else if (model === 'gemini-pro') {
-      model = 'gemini-1.5-pro';
-    }
+    // Modelo selecionado pelo usuário (prioriza o modelo personalizado se fornecido, senão gemini-2.5-flash)
+    let model = (customModel && customModel.trim()) || selectedModel || 'gemini-2.5-flash';
+    if (model === 'gemini-flash') model = 'gemini-2.5-flash';
+    if (model === 'gemini-pro') model = 'gemini-2.5-pro';
 
     // 1. Compilar contexto financeiro atualizado das finanças do usuário
     let financialContext = '';
@@ -109,7 +106,7 @@ REGRAS RÍGIDAS DE ATUAÇÃO:
     let usedModel = model;
 
     // Lista de fallbacks em ordem se o modelo inicial der 404
-    const fallbacks = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-2.5-flash'];
+    const fallbacks = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash', 'gemini-1.5-flash'];
 
     if (!response.ok && response.status === 404) {
       for (const fallbackModel of fallbacks) {
@@ -145,7 +142,6 @@ REGRAS RÍGIDAS DE ATUAÇÃO:
     const data = await response.json();
     const candidate = data.candidates?.[0];
 
-    // Tratar casos onde a API responde sem candidatos válidos (ex: bloqueio de segurança)
     if (!candidate || !candidate.content) {
       const finishReason = candidate?.finishReason || 'UNKNOWN';
       return NextResponse.json(

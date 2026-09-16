@@ -25,24 +25,34 @@ interface Message {
 
 const AVAILABLE_MODELS = [
   {
-    id: 'gemini-1.5-flash',
-    name: 'Gemini 1.5 Flash',
-    desc: 'Recomendado — Padrão oficial do Google AI Studio (Ultra-rápido)',
+    id: 'gemini-2.5-flash',
+    name: 'Gemini 2.5 Flash',
+    desc: '⭐ Recomendado — Modelo mais moderno da geração 2.5 (Ultra-rápido, inteligente e gratuito)',
   },
   {
-    id: 'gemini-1.5-pro',
-    name: 'Gemini 1.5 Pro',
-    desc: 'Raciocínio avançado — Para análises financeiras profundas e detalhadas',
+    id: 'gemini-2.5-pro',
+    name: 'Gemini 2.5 Pro',
+    desc: '🧠 Alta Capacidade — Modelo avançado para raciocínio financeiro profundo',
   },
   {
     id: 'gemini-2.0-flash',
     name: 'Gemini 2.0 Flash',
-    desc: 'Modelo da geração 2.0 (Respostas ágeis)',
+    desc: '⚡ Geração 2.0 — Respostas de baixa latência',
   },
   {
-    id: 'gemini-2.5-flash',
-    name: 'Gemini 2.5 Flash',
-    desc: 'Modelo da geração 2.5',
+    id: 'gemini-1.5-flash',
+    name: 'Gemini 1.5 Flash',
+    desc: '🔹 Geração 1.5 — Modelo leve',
+  },
+  {
+    id: 'gemini-1.5-pro',
+    name: 'Gemini 1.5 Pro',
+    desc: '🔹 Geração 1.5 — Modelo clássico',
+  },
+  {
+    id: 'custom',
+    name: '🛠️ Outro Modelo (Digitar ID personalizado)',
+    desc: 'Digite manualmente o código de qualquer modelo do Google AI Studio',
   },
 ];
 
@@ -155,7 +165,8 @@ function formatInline(text: string): React.ReactNode {
 export default function AIAssistantPage() {
   const [apiKey, setApiKey] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
-  const [selectedModel, setSelectedModel] = useState('gemini-1.5-flash');
+  const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
+  const [customModelInput, setCustomModelInput] = useState('');
   const [showConfig, setShowConfig] = useState(false);
   const [configSaved, setConfigSaved] = useState(false);
   const [savingServer, setSavingServer] = useState(false);
@@ -186,13 +197,29 @@ export default function AIAssistantPage() {
         if (res.ok) {
           const data = await res.json();
           if (data.apiKey) setApiKey(data.apiKey);
-          if (data.model) setSelectedModel(data.model);
+
+          if (data.model) {
+            const isKnown = AVAILABLE_MODELS.some((m) => m.id === data.model);
+            if (isKnown) {
+              setSelectedModel(data.model);
+            } else {
+              setSelectedModel('custom');
+              setCustomModelInput(data.model);
+            }
+          }
 
           if (!data.apiKey) {
             const localKey = localStorage.getItem('gemini_api_key') || '';
-            const localModel = localStorage.getItem('gemini_selected_model') || 'gemini-flash';
+            const localModel = localStorage.getItem('gemini_selected_model') || 'gemini-2.5-flash';
             if (localKey) setApiKey(localKey);
-            if (localModel) setSelectedModel(localModel);
+            if (localModel) {
+              const isKnown = AVAILABLE_MODELS.some((m) => m.id === localModel);
+              if (isKnown) setSelectedModel(localModel);
+              else {
+                setSelectedModel('custom');
+                setCustomModelInput(localModel);
+              }
+            }
             if (!localKey) setShowConfig(true);
           }
         }
@@ -210,13 +237,22 @@ export default function AIAssistantPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
+  const getEffectiveModel = () => {
+    if (selectedModel === 'custom') {
+      return customModelInput.trim() || 'gemini-2.5-flash';
+    }
+    return selectedModel;
+  };
+
   // Salvar configurações de forma sincronizada no Servidor / Banco de Dados (funciona no PC e Celular)
   const handleSaveConfig = async () => {
     setSavingServer(true);
     setError(null);
 
+    const modelToSave = getEffectiveModel();
+
     localStorage.setItem('gemini_api_key', apiKey.trim());
-    localStorage.setItem('gemini_selected_model', selectedModel);
+    localStorage.setItem('gemini_selected_model', modelToSave);
 
     try {
       const res = await fetch('/api/ai/settings', {
@@ -224,7 +260,7 @@ export default function AIAssistantPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           apiKey: apiKey.trim(),
-          model: selectedModel,
+          model: modelToSave,
         }),
       });
 
@@ -244,13 +280,15 @@ export default function AIAssistantPage() {
   const handleTestConnection = async () => {
     setTestStatus('testing');
     setTestErrorMessage(null);
+    const modelToTest = getEffectiveModel();
+
     try {
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           apiKey: apiKey.trim(),
-          model: selectedModel,
+          model: modelToTest,
           messages: [{ role: 'user', content: 'Responda apenas com a palavra OK se a API estiver funcionando.' }],
         }),
       });
@@ -287,13 +325,15 @@ export default function AIAssistantPage() {
     setIsLoading(true);
     setError(null);
 
+    const activeModel = getEffectiveModel();
+
     try {
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           apiKey: apiKey.trim(),
-          model: selectedModel,
+          model: activeModel,
           messages: newMessagesHistory.map((m) => ({
             role: m.role,
             content: m.content,
@@ -412,8 +452,21 @@ export default function AIAssistantPage() {
                     </option>
                   ))}
                 </select>
+
+                {selectedModel === 'custom' && (
+                  <div className="pt-2 space-y-1">
+                    <label className="text-[11px] text-[#8b949e]">ID do Modelo Personalizado (ex: gemini-2.5-flash):</label>
+                    <input
+                      type="text"
+                      placeholder="gemini-2.5-flash"
+                      value={customModelInput}
+                      onChange={(e) => setCustomModelInput(e.target.value)}
+                      className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg px-3 py-1.5 text-xs text-[#e6edf3] focus:outline-none focus:border-[#58a6ff] font-mono"
+                    />
+                  </div>
+                )}
                 <p className="text-[11px] text-[#8b949e]">
-                  O modelo Flash é ultra-rápido e incluído na cota padrão do Google AI Studio.
+                  O modelo Gemini 2.5 Flash é o mais moderno, ultra-rápido e incluído no plano gratuito.
                 </p>
               </div>
             </div>
