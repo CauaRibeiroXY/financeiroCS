@@ -430,6 +430,17 @@ CREATE TABLE public.fixed_expense_payments (
   CONSTRAINT fixed_expense_payments_uniq UNIQUE (expense_key, period)
 );
 
+-- ---------------------------------------------------------------------------
+-- 5.5 ai_settings — configurações do assistente de IA
+-- ---------------------------------------------------------------------------
+CREATE TABLE public.ai_settings (
+  id           TEXT PRIMARY KEY DEFAULT 'default',
+  api_key      TEXT,
+  model        TEXT DEFAULT 'gemini-2.5-flash',
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 
 -- ============================================================================
 -- 6. ÍNDICES

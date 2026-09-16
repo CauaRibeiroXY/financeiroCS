@@ -12,6 +12,7 @@ import {
   RefreshCw,
   Target,
   TrendingUp,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/app/lib/utils/cn';
 import { useItems } from '@/app/hooks/useItems';
@@ -37,15 +38,20 @@ const navItems: NavItem[] = [
     icon: <LayoutDashboard size={18} />,
   },
   {
+    label: 'Assistente IA',
+    href: '/ai',
+    icon: <Sparkles size={18} className="text-[#58a6ff]" />,
+  },
+  {
     label: 'Transações',
     href: '/transactions',
     icon: <ArrowUpDown size={18} />,
   },
   {
-  label: 'Gestor de Metas',
-  href: '/goals',
-  icon: <Target size={18} />,
-},
+    label: 'Gestor de Metas',
+    href: '/goals',
+    icon: <Target size={18} />,
+  },
   {
     label: 'Investimentos',
     href: '/investments',
