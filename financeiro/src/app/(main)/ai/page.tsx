@@ -31,19 +31,19 @@ interface GeminiModel {
 
 const DEFAULT_MODELS: GeminiModel[] = [
   {
-    id: 'gemini-1.5-flash',
-    name: 'Gemini 1.5 Flash (Recomendado)',
-    description: 'Rápido, leve e com ampla cota gratuita',
+    id: 'gemini-3.6-flash',
+    name: 'Gemini 3.6 Flash (Recomendado)',
+    description: 'Ultra rápido e eficiente para tarefas do dia a dia',
   },
   {
-    id: 'gemini-1.5-pro',
-    name: 'Gemini 1.5 Pro',
-    description: 'Raciocínio avançado para análises profundas',
+    id: 'gemini-3.1-pro',
+    name: 'Gemini 3.1 Pro',
+    description: 'Raciocínio avançado para análises financeiras profundas',
   },
   {
-    id: 'gemini-2.0-flash-exp',
-    name: 'Gemini 2.0 Flash Experimental',
-    description: 'Nova geração experimental do Gemini',
+    id: 'gemini-flash-latest',
+    name: 'Gemini Flash Latest',
+    description: 'Aponta sempre para a versão Flash mais recente (sujeito a limites de uso)',
   },
 ];
 
@@ -156,9 +156,7 @@ function formatInline(text: string): React.ReactNode {
 export default function AIAssistantPage() {
   const [apiKey, setApiKey] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
-  const [selectedModel, setSelectedModel] = useState('gemini-1.5-flash');
-  const [availableModels, setAvailableModels] = useState<GeminiModel[]>(DEFAULT_MODELS);
-  const [fetchingModels, setFetchingModels] = useState(false);
+  const [selectedModel, setSelectedModel] = useState('gemini-3.6-flash');
   const [showConfig, setShowConfig] = useState(false);
   const [configSaved, setConfigSaved] = useState(false);
   const [savingServer, setSavingServer] = useState(false);
@@ -179,37 +177,6 @@ export default function AIAssistantPage() {
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'failed'>('idle');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Função para buscar modelos disponíveis na API do Google Gemini
-  const fetchAvailableModels = async (keyToUse?: string) => {
-    const targetKey = keyToUse || apiKey;
-    if (!targetKey.trim()) return;
-
-    setFetchingModels(true);
-    try {
-      const res = await fetch('/api/ai/models', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey: targetKey.trim() }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data.models) && data.models.length > 0) {
-          setAvailableModels(data.models);
-          // Se o modelo selecionado atualmente não estiver na lista, seleciona o primeiro disponível
-          const exists = data.models.some((m: GeminiModel) => m.id === selectedModel);
-          if (!exists) {
-            setSelectedModel(data.models[0].id);
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Erro ao buscar modelos:', err);
-    } finally {
-      setFetchingModels(false);
-    }
-  };
-
   // Carregar configurações centralizadas da API (do servidor / banco de dados)
   useEffect(() => {
     async function loadSettings() {
@@ -228,16 +195,11 @@ export default function AIAssistantPage() {
           if (loadedKey) setApiKey(loadedKey);
           if (loadedModel) setSelectedModel(loadedModel);
           if (!loadedKey) setShowConfig(true);
-
-          if (loadedKey) {
-            fetchAvailableModels(loadedKey);
-          }
         }
       } catch {
         const localKey = localStorage.getItem('gemini_api_key') || '';
         if (localKey) {
           setApiKey(localKey);
-          fetchAvailableModels(localKey);
         }
       }
     }
@@ -435,33 +397,22 @@ export default function AIAssistantPage() {
                 </p>
               </div>
 
-              {/* Seletor de Modelo Dinâmico */}
+              {/* Seletor de Modelo (Estático) */}
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium text-[#e6edf3]">Modelo de IA (Obtido via API):</label>
-                  <button
-                    type="button"
-                    onClick={() => fetchAvailableModels()}
-                    disabled={fetchingModels || !apiKey.trim()}
-                    className="text-[11px] text-[#58a6ff] hover:underline disabled:opacity-50 flex items-center gap-1"
-                  >
-                    {fetchingModels && <Loader2 size={11} className="animate-spin" />}
-                    Atualizar lista da minha conta
-                  </button>
-                </div>
+                <label className="text-xs font-medium text-[#e6edf3]">Modelo de IA:</label>
                 <select
                   value={selectedModel}
                   onChange={(e) => setSelectedModel(e.target.value)}
                   className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg px-3 py-2 text-xs text-[#e6edf3] focus:outline-none focus:border-[#58a6ff]"
                 >
-                  {availableModels.map((m) => (
+                  {DEFAULT_MODELS.map((m) => (
                     <option key={m.id} value={m.id}>
-                      {m.name} ({m.id}) {m.description ? `— ${m.description}` : ''}
+                      {m.name} — {m.description}
                     </option>
                   ))}
                 </select>
                 <p className="text-[11px] text-[#8b949e]">
-                  Lista atualizada dinamicamente com base nos modelos liberados para a sua chave de API.
+                  O modelo Flash é ultra-rápido e recomendado para a maioria das tarefas.
                 </p>
               </div>
             </div>
