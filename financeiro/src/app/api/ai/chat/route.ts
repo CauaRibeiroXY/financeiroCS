@@ -31,8 +31,13 @@ export async function POST(req: Request) {
       );
     }
 
-    // Modelo selecionado (padrão: gemini-flash ou gemini-2.5-flash)
-    const model = selectedModel || 'gemini-flash';
+    // Modelo selecionado (padrão oficial canônico do Google AI Studio: gemini-1.5-flash)
+    let model = selectedModel || 'gemini-1.5-flash';
+    if (model === 'gemini-flash') {
+      model = 'gemini-1.5-flash';
+    } else if (model === 'gemini-pro') {
+      model = 'gemini-1.5-pro';
+    }
 
     // 1. Compilar contexto financeiro atualizado das finanças do usuário
     let financialContext = '';
@@ -101,13 +106,21 @@ REGRAS RÍGIDAS DE ATUAÇÃO:
     };
 
     let response = await tryGeminiRequest(model);
+    let usedModel = model;
 
-    // Se o modelo solicitado der 404 (modelo inexistente ou indisponível), faz fallback automático
-    if (!response.ok && response.status === 404 && model !== 'gemini-flash') {
-      console.warn(`Modelo ${model} retornou 404. Tentando fallback para gemini-flash...`);
-      response = await tryGeminiRequest('gemini-flash');
-      if (!response.ok && response.status === 404) {
-        response = await tryGeminiRequest('gemini-2.5-flash');
+    // Lista de fallbacks em ordem se o modelo inicial der 404
+    const fallbacks = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-2.5-flash'];
+
+    if (!response.ok && response.status === 404) {
+      for (const fallbackModel of fallbacks) {
+        if (fallbackModel === model) continue;
+        console.warn(`Modelo ${model} retornou 404. Tentando fallback para ${fallbackModel}...`);
+        const fbRes = await tryGeminiRequest(fallbackModel);
+        if (fbRes.ok) {
+          response = fbRes;
+          usedModel = fallbackModel;
+          break;
+        }
       }
     }
 
@@ -149,7 +162,7 @@ REGRAS RÍGIDAS DE ATUAÇÃO:
 
     return NextResponse.json({
       reply: assistantReply,
-      modelUsed: model,
+      modelUsed: usedModel,
     });
   } catch (err: any) {
     console.error('Erro na rota /api/ai/chat:', err);

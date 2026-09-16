@@ -25,24 +25,24 @@ interface Message {
 
 const AVAILABLE_MODELS = [
   {
-    id: 'gemini-flash',
-    name: 'Gemini Flash (Auto-atualizado)',
-    desc: 'Recomendado — Aponta automaticamente para a versão estável Flash mais recente',
+    id: 'gemini-1.5-flash',
+    name: 'Gemini 1.5 Flash',
+    desc: 'Recomendado — Padrão oficial do Google AI Studio (Ultra-rápido)',
+  },
+  {
+    id: 'gemini-1.5-pro',
+    name: 'Gemini 1.5 Pro',
+    desc: 'Raciocínio avançado — Para análises financeiras profundas e detalhadas',
+  },
+  {
+    id: 'gemini-2.0-flash',
+    name: 'Gemini 2.0 Flash',
+    desc: 'Modelo da geração 2.0 (Respostas ágeis)',
   },
   {
     id: 'gemini-2.5-flash',
     name: 'Gemini 2.5 Flash',
-    desc: 'Ultra-rápido, inteligente e excelente para finanças',
-  },
-  {
-    id: 'gemini-2.5-pro',
-    name: 'Gemini 2.5 Pro',
-    desc: 'Raciocínio avançado — Análises financeiras profundas e detalhadas',
-  },
-  {
-    id: 'gemini-pro',
-    name: 'Gemini Pro (Auto-atualizado)',
-    desc: 'Aponta automaticamente para a versão Pro mais recente',
+    desc: 'Modelo da geração 2.5',
   },
 ];
 
@@ -155,7 +155,7 @@ function formatInline(text: string): React.ReactNode {
 export default function AIAssistantPage() {
   const [apiKey, setApiKey] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
-  const [selectedModel, setSelectedModel] = useState('gemini-flash');
+  const [selectedModel, setSelectedModel] = useState('gemini-1.5-flash');
   const [showConfig, setShowConfig] = useState(false);
   const [configSaved, setConfigSaved] = useState(false);
   const [savingServer, setSavingServer] = useState(false);
