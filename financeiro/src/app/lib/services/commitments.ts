@@ -550,10 +550,25 @@ export function normalizeCashflow(
 
   const normalize = (tx: TransactionRecord, amount: number): NormalizedTx => {
     const inst = readInstallments(tx);
+    let finalAmount = amount;
+
+    if (inst.total && inst.total >= 2) {
+      const meta = (tx.credit_card_metadata ?? {}) as Record<string, unknown>;
+      const totalAmount = Number(meta.totalAmount);
+      
+      if (Number.isFinite(totalAmount) && totalAmount > 0) {
+        // sameAmount logic inline:
+        const diff = Math.abs(amount - totalAmount);
+        if (diff <= 0.05 || diff / Math.max(amount, totalAmount) <= 0.01) {
+          finalAmount = amount / inst.total;
+        }
+      }
+    }
+
     return {
       tx,
       key: merchantKey(tx.description),
-      amount,
+      amount: finalAmount,
       period: periodOf(tx.date),
       date: tx.date,
       accountType: typeOf(tx.account_id),
