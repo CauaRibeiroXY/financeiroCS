@@ -18,7 +18,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           error:
-            'Chave de API do Gemini não fornecida. Por favor, insira sua chave no painel de configurações acima ou configure GEMINI_API_KEY no servidor.',
+            'Chave de API do Gemini não fornecida. Insira a sua chave no painel de configurações ou defina a variável GEMINI_API_KEY no servidor.',
         },
         { status: 400 }
       );
@@ -26,13 +26,13 @@ export async function POST(req: Request) {
 
     if (!Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json(
-        { error: 'Formato de mensagens inválido.' },
+        { error: 'Formato de mensagens inválido para o histórico de chat.' },
         { status: 400 }
       );
     }
 
     // Modelo selecionado (padrão: gemini-flash ou gemini-2.5-flash)
-    const model = selectedModel || 'gemini-2.5-flash';
+    const model = selectedModel || 'gemini-flash';
 
     // 1. Compilar contexto financeiro atualizado das finanças do usuário
     let financialContext = '';
@@ -62,11 +62,9 @@ REGRAS RÍGIDAS DE ATUAÇÃO:
 `.trim();
 
     // 3. Formatar histórico de mensagens para a estrutura esperada pela API do Gemini
-    // A API do Gemini usa "user" e "model"
     const contents = messages.map((msg: ChatMessage, index: number) => {
       const geminiRole = msg.role === 'assistant' ? 'model' : 'user';
 
-      // No primeiro turno do usuário, injetamos o contexto financeiro como prefixo
       let textContent = msg.content;
       if (index === 0 && msg.role === 'user') {
         textContent = `[DADOS FINANCEIROS ATUAIS DO USUÁRIO]:\n${financialContext}\n\n[PERGUNTA DO USUÁRIO]:\n${msg.content}`;
@@ -78,8 +76,7 @@ REGRAS RÍGIDAS DE ATUAÇÃO:
       };
     });
 
-    // 4. Fazer a requisição HTTP para a API do Google Gemini
-    // Tenta primeiro o modelo solicitado; se falhar por modelo descontinuado, tenta fallback para gemini-flash / gemini-2.5-flash
+    // 4. Função para requisitar a API do Gemini com relatório detalhado de erros
     const tryGeminiRequest = async (targetModel: string) => {
       const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`;
 
@@ -105,7 +102,7 @@ REGRAS RÍGIDAS DE ATUAÇÃO:
 
     let response = await tryGeminiRequest(model);
 
-    // Se a API retornar 404 (modelo não encontrado), tenta fallback para o alias 'gemini-flash' ou 'gemini-2.5-flash'
+    // Se o modelo solicitado der 404 (modelo inexistente ou indisponível), faz fallback automático
     if (!response.ok && response.status === 404 && model !== 'gemini-flash') {
       console.warn(`Modelo ${model} retornou 404. Tentando fallback para gemini-flash...`);
       response = await tryGeminiRequest('gemini-flash');
@@ -116,23 +113,39 @@ REGRAS RÍGIDAS DE ATUAÇÃO:
 
     if (!response.ok) {
       const errorText = await response.text();
-      let parsedError = 'Erro na resposta da API do Gemini.';
+      let detailMsg = errorText;
       try {
         const jsonErr = JSON.parse(errorText);
-        parsedError = jsonErr.error?.message || parsedError;
+        detailMsg = jsonErr.error?.message || jsonErr.error?.status || errorText;
       } catch {}
 
       return NextResponse.json(
-        { error: `Erro na API do Gemini: ${parsedError}` },
+        {
+          error: `Erro na API do Google Gemini (Status ${response.status}): ${detailMsg}`,
+          statusCode: response.status,
+          rawError: detailMsg,
+        },
         { status: response.status }
       );
     }
 
     const data = await response.json();
     const candidate = data.candidates?.[0];
+
+    // Tratar casos onde a API responde sem candidatos válidos (ex: bloqueio de segurança)
+    if (!candidate || !candidate.content) {
+      const finishReason = candidate?.finishReason || 'UNKNOWN';
+      return NextResponse.json(
+        {
+          error: `A API do Gemini não retornou conteúdo. Motivo do término: ${finishReason}`,
+        },
+        { status: 500 }
+      );
+    }
+
     const assistantReply =
-      candidate?.content?.parts?.[0]?.text ||
-      'Não foi possível obter uma resposta do modelo no momento.';
+      candidate.content.parts?.[0]?.text ||
+      'Não foi possível extrair uma resposta em texto do modelo.';
 
     return NextResponse.json({
       reply: assistantReply,
@@ -141,7 +154,7 @@ REGRAS RÍGIDAS DE ATUAÇÃO:
   } catch (err: any) {
     console.error('Erro na rota /api/ai/chat:', err);
     return NextResponse.json(
-      { error: err.message || 'Erro interno ao processar conversa.' },
+      { error: `Erro interno no servidor ao processar IA: ${err.message || String(err)}` },
       { status: 500 }
     );
   }

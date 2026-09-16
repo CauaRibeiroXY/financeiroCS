@@ -155,7 +155,7 @@ function formatInline(text: string): React.ReactNode {
 export default function AIAssistantPage() {
   const [apiKey, setApiKey] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
-  const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
+  const [selectedModel, setSelectedModel] = useState('gemini-flash');
   const [showConfig, setShowConfig] = useState(false);
   const [configSaved, setConfigSaved] = useState(false);
   const [savingServer, setSavingServer] = useState(false);
@@ -174,6 +174,8 @@ export default function AIAssistantPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'failed'>('idle');
+  const [testErrorMessage, setTestErrorMessage] = useState<string | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Carregar configurações centralizadas da API (do servidor / banco de dados)
@@ -187,9 +189,8 @@ export default function AIAssistantPage() {
           if (data.model) setSelectedModel(data.model);
 
           if (!data.apiKey) {
-            // Se não houver chave no servidor, tentar no localStorage
             const localKey = localStorage.getItem('gemini_api_key') || '';
-            const localModel = localStorage.getItem('gemini_selected_model') || 'gemini-2.5-flash';
+            const localModel = localStorage.getItem('gemini_selected_model') || 'gemini-flash';
             if (localKey) setApiKey(localKey);
             if (localModel) setSelectedModel(localModel);
             if (!localKey) setShowConfig(true);
@@ -214,7 +215,6 @@ export default function AIAssistantPage() {
     setSavingServer(true);
     setError(null);
 
-    // Salvar também no localStorage como cache local
     localStorage.setItem('gemini_api_key', apiKey.trim());
     localStorage.setItem('gemini_selected_model', selectedModel);
 
@@ -233,7 +233,6 @@ export default function AIAssistantPage() {
         setTimeout(() => setConfigSaved(false), 3500);
       }
     } catch {
-      // Mesmo se o POST falhar, localstorage foi salvo
       setConfigSaved(true);
       setTimeout(() => setConfigSaved(false), 3500);
     } finally {
@@ -241,9 +240,10 @@ export default function AIAssistantPage() {
     }
   };
 
-  // Testar a conexão da chave com o endpoint
+  // Testar a conexão da chave com a API e capturar mensagem detalhada de erro
   const handleTestConnection = async () => {
     setTestStatus('testing');
+    setTestErrorMessage(null);
     try {
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
@@ -255,13 +255,17 @@ export default function AIAssistantPage() {
         }),
       });
 
+      const data = await res.json();
+
       if (res.ok) {
         setTestStatus('success');
       } else {
         setTestStatus('failed');
+        setTestErrorMessage(data.error || 'A API do Gemini retornou uma resposta com erro.');
       }
-    } catch {
+    } catch (err: any) {
       setTestStatus('failed');
+      setTestErrorMessage(err.message || 'Erro de rede ao conectar com o servidor.');
     }
   };
 
@@ -415,33 +419,42 @@ export default function AIAssistantPage() {
             </div>
 
             {/* Ações de Salvar e Testar */}
-            <div className="flex items-center gap-3 pt-2">
-              <button
-                onClick={handleSaveConfig}
-                disabled={savingServer}
-                className="bg-[#238636] hover:bg-[#2ea043] text-white px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 flex items-center gap-1.5"
-              >
-                {savingServer && <Loader2 size={13} className="animate-spin" />}
-                Salvar Configurações
-              </button>
-              <button
-                onClick={handleTestConnection}
-                disabled={!apiKey.trim() || testStatus === 'testing'}
-                className="bg-[#21262d] hover:bg-[#30363d] border border-[#30363d] text-[#e6edf3] px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 flex items-center gap-1.5"
-              >
-                {testStatus === 'testing' && <Loader2 size={13} className="animate-spin text-[#58a6ff]" />}
-                Testar Conexão
-              </button>
+            <div className="flex flex-col gap-2 pt-2">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleSaveConfig}
+                  disabled={savingServer}
+                  className="bg-[#238636] hover:bg-[#2ea043] text-white px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {savingServer && <Loader2 size={13} className="animate-spin" />}
+                  Salvar Configurações
+                </button>
+                <button
+                  onClick={handleTestConnection}
+                  disabled={!apiKey.trim() || testStatus === 'testing'}
+                  className="bg-[#21262d] hover:bg-[#30363d] border border-[#30363d] text-[#e6edf3] px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {testStatus === 'testing' && <Loader2 size={13} className="animate-spin text-[#58a6ff]" />}
+                  Testar Conexão
+                </button>
 
-              {testStatus === 'success' && (
-                <span className="text-xs text-green-400 flex items-center gap-1">
-                  <CheckCircle2 size={14} /> Conexão OK!
-                </span>
-              )}
+                {testStatus === 'success' && (
+                  <span className="text-xs text-green-400 flex items-center gap-1">
+                    <CheckCircle2 size={14} /> Conexão OK! A chave e a API do Gemini estão funcionando perfeitamente.
+                  </span>
+                )}
+              </div>
+
               {testStatus === 'failed' && (
-                <span className="text-xs text-red-400 flex items-center gap-1">
-                  <AlertCircle size={14} /> Falha na conexão. Verifique a chave.
-                </span>
+                <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-3 rounded-lg text-xs flex items-start gap-2 mt-1">
+                  <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <span className="font-semibold block">Falha na Conexão com o Gemini:</span>
+                    <span className="block font-mono bg-[#0d1117] p-2 rounded border border-red-500/20 text-[11px] whitespace-pre-wrap">
+                      {testErrorMessage || 'Não foi possível autenticar. Verifique se a chave digitada está correta e ativa no Google AI Studio.'}
+                    </span>
+                  </div>
+                </div>
               )}
             </div>
           </div>
@@ -506,9 +519,14 @@ export default function AIAssistantPage() {
           )}
 
           {error && (
-            <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-3 rounded-lg text-xs flex items-center gap-2">
-              <AlertCircle size={16} />
-              <span>{error}</span>
+            <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-3 rounded-lg text-xs flex items-start gap-2">
+              <AlertCircle size={16} className="shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <span className="font-semibold block">Erro na Comunicação com a IA:</span>
+                <span className="block font-mono bg-[#0d1117] p-2 rounded border border-red-500/20 text-[11px] whitespace-pre-wrap">
+                  {error}
+                </span>
+              </div>
             </div>
           )}
 
