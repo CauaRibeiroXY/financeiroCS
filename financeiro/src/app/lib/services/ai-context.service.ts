@@ -22,7 +22,13 @@ export interface FinancialContext {
 export async function buildFinancialAIContext(): Promise<FinancialContext> {
   const supabase = getSupabaseAdmin();
 
-  // Buscar dados em paralelo no Supabase
+  const accountsReq = supabase.from('accounts').select('*').or('is_ignored.is.null,is_ignored.eq.false');
+  const transactionsReq = supabase.from('transactions').select('*').order('date', { ascending: false }).limit(300);
+  const billsReq = supabase.from('credit_card_bills').select('*');
+  const investmentsReq = supabase.from('investments').select('*');
+  const goalsReq = supabase.from('goals').select('*');
+  const fixedExpensesReq = supabase.from('fixed_expenses').select('*');
+
   const [
     accountsRes,
     transactionsRes,
@@ -31,17 +37,20 @@ export async function buildFinancialAIContext(): Promise<FinancialContext> {
     goalsRes,
     fixedExpensesRes,
   ] = await Promise.all([
-    supabase.from('accounts').select('*').eq('is_ignored', false),
-    supabase
-      .from('transactions')
-      .select('*')
-      .order('date', { ascending: false })
-      .limit(300),
-    supabase.from('credit_card_bills').select('*'),
-    supabase.from('investments').select('*'),
-    supabase.from('goals').select('*'),
-    supabase.from('fixed_expenses').select('*'),
+    accountsReq,
+    transactionsReq,
+    billsReq,
+    investmentsReq,
+    goalsReq,
+    fixedExpensesReq,
   ]);
+
+  if (accountsRes.error) console.error('Erro accounts:', accountsRes.error);
+  if (transactionsRes.error) console.error('Erro transactions:', transactionsRes.error);
+  
+  // Se der erro grave nas contas ou transações, vamos lançar o erro para o fallback ser ativado e avisar que o banco falhou
+  if (accountsRes.error) throw new Error(`Falha ao buscar contas: ${accountsRes.error.message}`);
+  if (transactionsRes.error) throw new Error(`Falha ao buscar transações: ${transactionsRes.error.message}`);
 
   const accounts = (accountsRes.data || []) as AccountRecord[];
   const transactions = (transactionsRes.data || []) as TransactionRecord[];
