@@ -11,11 +11,11 @@ import { translateCategory } from './categories-pt';
 export type LeakSeverity = 'CRITICAL' | 'WARNING' | 'INFO';
 
 export type LeakCategory =
-  | 'BANK_FEES'          // Tarifas, IOF, juros, multas, anuidade
+  | 'BANK_FEES'          // Tarifas, IOF, juros, multas, anuidade (100% inútil)
   | 'SUBSCRIPTIONS'      // Assinaturas e serviços recorrentes acumulados
-  | 'MICRO_EXPENSES'     // Efeito cafezinho / micro-gastos repetitivos
-  | 'DELIVERY_TRANSPORT' // Apps de entrega e transporte (iFood, Uber, etc.)
-  | 'EXPENSE_SURGE'      // Categorias com estouro expressivo vs mês anterior
+  | 'MICRO_EXPENSES'     // Efeito cafezinho REAL da rotina diária (fora de viagens)
+  | 'DELIVERY_TRANSPORT' // Apps de conveniência recorrentes (persistente em várias semanas/meses)
+  | 'EXPENSE_SURGE'      // Categorias com estouro expressivo vs média móvel anterior
   | 'LARGE_OUTLIERS';    // Maiores compras atípicas do mês
 
 export interface LeakTransaction {
@@ -40,6 +40,16 @@ export interface MoneyLeakItem {
   transactions: LeakTransaction[];
 }
 
+export interface OccasionalEventCluster {
+  id: string;
+  title: string;
+  dateRange: string; // ex: "01/11 a 05/11"
+  totalAmount: number;
+  occurrences: number;
+  reason: string;
+  transactions: LeakTransaction[];
+}
+
 export interface MoneyLeaksAnalysis {
   period: string;
   totalExpenses: number;
@@ -48,6 +58,7 @@ export interface MoneyLeaksAnalysis {
   leakScore: number; // 0 a 100
   leakingPercentage: number;
   items: MoneyLeakItem[];
+  occasionalEvents: OccasionalEventCluster[];
   byCategoryTotals: Record<LeakCategory, number>;
   insights: string[];
 }
@@ -56,20 +67,31 @@ export interface MoneyLeaksOptions {
   period?: string;
 }
 
-// Padrões de tarifas bancárias, juros, IOF, encargos e multas
+// Padrões de tarifas bancárias, juros, IOF, encargos e multas (Zero Contrapartida)
 const BANK_FEE_PATTERN =
   /\b(tarifa|iof|juros|multa|anuidade|encargo|encargos|pacote\s?serv|manutencao\s?conta|taxa\s?de\s?servico|taxa\s?manut|avalia\w*\s*emerg|doc\/ted|ted\/doc)\b/i;
 
-// Padrões de apps de delivery e transporte
+// Padrões de apps de delivery e transporte cotidiano
 const DELIVERY_TRANSPORT_PATTERN =
   /\b(ifood|ifd|uber|99app|99\s?pop|rappi|ze\s?delivery|carrefour\s?delivery|cornershop)\b/i;
 
-// Padrões de assinaturas conhecidas
+// Padrões de assinaturas e streamings conhecidos
 const SUBSCRIPTION_PATTERN =
   /\b(netflix|spotify|hbomax|hbo\s?max|amazon\s?prime|prime\s?video|disney|star\s?plus|globoplay|paramount|crunchyroll|deezer|youtube\s?premium|ytb\s?premium|google\s?one|icloud|apple\s?music|openai|chatgpt|claude\s?ai|github|smart\s?fit|smartfit|bluefit|bodytech)\b/i;
 
+// Padrões de deslocamento, viagens e atrações atípicas (para cluster de viagem)
+const TRIP_TRANSIT_PATTERN =
+  /\b(metro|metr[oô]|cptm|autopass|supervia|vlt|bilhete\s?[uú]nico|pedagio|ped[aá]gio|sem\s?parar|conectcar|veloe|aeroporto|latam|gol\s?linhas|azul\s?linhas|airbnb|booking|hotel|pousada|rodoviaria|cometa|1001|masp|parque|ingresso|sympla|eventim)\b/i;
+
+// Padrões de saúde/farmácia que NÃO devem ser classificados como "efeito cafezinho"
+const HEALTH_PHARMACY_PATTERN =
+  /\b(farmacia|farm[aá]cia|droga|drogasil|drogaria|raia|pague\s?menos|panvel|ultrafarma|consulta|laborat|exame|medico|hospital|dentista|odont)\b/i;
+
 /**
- * Detecta onde o usuário está perdendo dinheiro ("Ralos Financeiros").
+ * Detecta onde o usuário está realmente perdendo dinheiro com inteligência contextual:
+ * 1. Isola clusters de viagens e eventos pontuais (ex: metrô por 5 dias quando outros meses têm 0).
+ * 2. Purga gastos de saúde e passagens atípicas do "Efeito Cafezinho".
+ * 3. Foca em ralos 100% inúteis (tarifas bancárias/juros), assinaturas zumbis e comodidade crônica.
  */
 export function detectMoneyLeaks(
   transactions: TransactionRecord[],
@@ -77,21 +99,94 @@ export function detectMoneyLeaks(
   options: MoneyLeaksOptions = {}
 ): MoneyLeaksAnalysis {
   const period = options.period ?? currentPeriod();
-  const previousPeriod = addMonths(period, -1);
+  const prevMonth1 = addMonths(period, -1);
+  const prevMonth2 = addMonths(period, -2);
+  const prevMonth3 = addMonths(period, -3);
 
   const { outflows } = normalizeOutflows(transactions, accounts);
 
+  // Separar saídas por mês
   const currentOutflows = outflows.filter((o) => o.period === period);
-  const previousOutflows = outflows.filter((o) => o.period === previousPeriod);
+  const previousOutflows = outflows.filter((o) => o.period === prevMonth1);
+  const pastBaselineOutflows = outflows.filter(
+    (o) => o.period === prevMonth1 || o.period === prevMonth2 || o.period === prevMonth3
+  );
 
   const totalExpenses = currentOutflows.reduce((sum, o) => sum + o.amount, 0);
+
+  // --------------------------------------------------------------------------
+  // PASSO 0: DETECÇÃO DE EVENTOS & VIAGENS PONTUAIS (CLUSTER TEMPORAL ATÍPICO)
+  // --------------------------------------------------------------------------
+  // Exemplo: se o uso de metrô/transporte foi só em 5 dias de nov, enquanto nos outros
+  // meses o gasto é 0, trata-se de uma viagem ou evento temporário, NÃO um ralo crônico!
+  const occasionalEvents: OccasionalEventCluster[] = [];
+  const eventTxIds = new Set<string>();
+
+  // Analisar transações que têm características de viagem, turismo ou trânsito intermunicipal
+  const transitOrTripOutflows = currentOutflows.filter((o) => {
+    const desc = o.tx.description ?? '';
+    const cat = o.tx.category ?? '';
+    return TRIP_TRANSIT_PATTERN.test(desc) || TRIP_TRANSIT_PATTERN.test(cat);
+  });
+
+  if (transitOrTripOutflows.length > 0) {
+    // Verificar linha de base histórica (baseline) nos meses anteriores (M-1, M-2, M-3)
+    const baselineOccurrences = pastBaselineOutflows.filter((o) => {
+      const desc = o.tx.description ?? '';
+      const cat = o.tx.category ?? '';
+      return TRIP_TRANSIT_PATTERN.test(desc) || TRIP_TRANSIT_PATTERN.test(cat);
+    }).length;
+
+    // Calcular amplitude de dias em que essas transações ocorreram no mês atual
+    const dates = transitOrTripOutflows
+      .map((o) => o.date.slice(0, 10))
+      .sort();
+    const uniqueDays = Array.from(new Set(dates));
+
+    // Se as ocorrências ocorreram em até 7 dias distintos E o histórico anterior foi nulo ou muito baixo (média < 1/mês)
+    const isBurst = uniqueDays.length <= 7;
+    const isAtypicalHistory = baselineOccurrences <= 2;
+
+    if (isBurst && isAtypicalHistory) {
+      const clusterTotal = transitOrTripOutflows.reduce((s, o) => s + o.amount, 0);
+      const firstDay = uniqueDays[0].split('-').slice(1).reverse().join('/');
+      const lastDay = uniqueDays[uniqueDays.length - 1].split('-').slice(1).reverse().join('/');
+      const dateRangeStr = uniqueDays.length === 1 ? firstDay : `${firstDay} a ${lastDay}`;
+
+      // Amostra de nomes
+      const sampleNames = Array.from(
+        new Set(transitOrTripOutflows.map((o) => displayTitle(o.tx.description)))
+      ).slice(0, 3).join(', ');
+
+      occasionalEvents.push({
+        id: 'event-trip-transit',
+        title: `Deslocamento / Viagem Pontual (${sampleNames})`,
+        dateRange: dateRangeStr,
+        totalAmount: Number(clusterTotal.toFixed(2)),
+        occurrences: transitOrTripOutflows.length,
+        reason: `Concentrado em ${uniqueDays.length} dia(s) (${dateRangeStr}). Histórico nos meses anteriores é nulo ou próximo de zero, confirmando que foi uma viagem/evento isolado e NÃO um ralo crônico.`,
+        transactions: transitOrTripOutflows.map(mapNormalizedToLeakTx),
+      });
+
+      // Registrar IDs para NÃO incluir essas despesas no Efeito Cafezinho ou Hábitos
+      for (const t of transitOrTripOutflows) {
+        if (t.tx.transaction_id) eventTxIds.add(t.tx.transaction_id);
+      }
+    }
+  }
+
+  // Despesas elegíveis para análise de ralos (expurgando despesas de eventos/viagens pontuais)
+  const leakEligibleOutflows = currentOutflows.filter((o) => {
+    if (o.tx.transaction_id && eventTxIds.has(o.tx.transaction_id)) return false;
+    return true;
+  });
 
   const items: MoneyLeakItem[] = [];
 
   // --------------------------------------------------------------------------
-  // 1. TARIFAS BANCÁRIAS, JUROS, IOF E ANUIDADES (CRÍTICO - 100% Evitável)
+  // 1. TARIFAS BANCÁRIAS, JUROS, IOF E ANUIDADES (CRÍTICO - 100% Inútil / Evitável)
   // --------------------------------------------------------------------------
-  const feeTxs = currentOutflows.filter((o) => {
+  const feeTxs = leakEligibleOutflows.filter((o) => {
     const desc = o.tx.description ?? '';
     const cat = o.tx.category ?? '';
     return BANK_FEE_PATTERN.test(desc) || BANK_FEE_PATTERN.test(cat);
@@ -102,81 +197,26 @@ export function detectMoneyLeaks(
     items.push({
       id: 'leak-bank-fees',
       category: 'BANK_FEES',
-      title: 'Tarifas Bancárias, IOF e Juros',
-      description: `${feeTxs.length} lançamento(s) de tarifas, juros de cartão ou impostos bancários somando R$ ${totalFees.toFixed(2)}.`,
+      title: 'Tarifas Bancárias, Juros de Rotativo e Multas',
+      description: `${feeTxs.length} lançamento(s) somando R$ ${totalFees.toFixed(2)} de tarifas de conta, anuidade ou encargos bancários sem nenhuma contrapartida para você.`,
       amount: Number(totalFees.toFixed(2)),
       occurrences: feeTxs.length,
       severity: 'CRITICAL',
       actionTip:
-        'Solicite a portabilidade ou a adesão ao Pacote de Serviços Essenciais Gratuito do Banco Central (Resolução 3.919) para zerar tarifas de conta. Negocie isenção de anuidade no cartão e evite o rotativo.',
+        '100% estancável: Solicite ao banco a migração imediata para o Pacote Essencial Gratuito do Banco Central (Resolução 3.919) para zerar tarifas de conta. Negocie anuidade do cartão ou use cartões sem taxa.',
       transactions: feeTxs.map(mapNormalizedToLeakTx),
     });
   }
 
   // --------------------------------------------------------------------------
-  // 2. EFEITO CAFEZINHO / MICRO-GASTOS REPETITIVOS (<= R$ 40)
+  // 2. ASSINATURAS E STREAMINGS RECORRENTES ACUMULADOS
   // --------------------------------------------------------------------------
-  // Despesas pequenas (R$ 3 a R$ 40) repetidas muitas vezes
-  const microTxs = currentOutflows.filter((o) => o.amount >= 3 && o.amount <= 40);
-  if (microTxs.length >= 6) {
-    const totalMicro = microTxs.reduce((s, t) => s + t.amount, 0);
-    const avgMicro = totalMicro / microTxs.length;
-    items.push({
-      id: 'leak-micro-expenses',
-      category: 'MICRO_EXPENSES',
-      title: 'Efeito Cafezinho (Micro-gastos Repetitivos)',
-      description: `Foram ${microTxs.length} pequenas compras (média de R$ ${avgMicro.toFixed(2)}) de valor até R$ 40,00, totalizando R$ ${totalMicro.toFixed(2)} que saíram quase sem você perceber.`,
-      amount: Number(totalMicro.toFixed(2)),
-      occurrences: microTxs.length,
-      severity: microTxs.length >= 14 || totalMicro >= 300 ? 'WARNING' : 'INFO',
-      actionTip:
-        'Pequenas compras diárias somam montantes altos no final do mês. Defina uma mesada/limite semanal para pequenos gastos do dia a dia e prefira pagar no débito ou dinheiro.',
-      transactions: microTxs.slice(0, 20).map(mapNormalizedToLeakTx),
-    });
-  }
-
-  // --------------------------------------------------------------------------
-  // 3. APPS DE DELIVERY E TRANSPORTE (iFood, Uber, 99, etc.)
-  // --------------------------------------------------------------------------
-  const deliveryTxs = currentOutflows.filter((o) => {
-    const desc = o.tx.description ?? '';
-    const cat = o.tx.category ?? '';
-    return DELIVERY_TRANSPORT_PATTERN.test(desc) || DELIVERY_TRANSPORT_PATTERN.test(cat);
-  });
-
-  if (deliveryTxs.length >= 4 || deliveryTxs.reduce((s, t) => s + t.amount, 0) >= 150) {
-    const totalDelivery = deliveryTxs.reduce((s, t) => s + t.amount, 0);
-    const prevDeliveryTxs = previousOutflows.filter((o) => {
-      const desc = o.tx.description ?? '';
-      const cat = o.tx.category ?? '';
-      return DELIVERY_TRANSPORT_PATTERN.test(desc) || DELIVERY_TRANSPORT_PATTERN.test(cat);
-    });
-    const prevTotalDelivery = prevDeliveryTxs.reduce((s, t) => s + t.amount, 0);
-
-    items.push({
-      id: 'leak-delivery-transport',
-      category: 'DELIVERY_TRANSPORT',
-      title: 'Conveniência Excessiva: Delivery e Caronas por App',
-      description: `Total de R$ ${totalDelivery.toFixed(2)} gastos em ${deliveryTxs.length} pedidos e corridas (iFood, Uber, etc.).`,
-      amount: Number(totalDelivery.toFixed(2)),
-      previousAmount: prevTotalDelivery > 0 ? Number(prevTotalDelivery.toFixed(2)) : undefined,
-      occurrences: deliveryTxs.length,
-      severity: totalDelivery >= 450 || deliveryTxs.length >= 12 ? 'WARNING' : 'INFO',
-      actionTip:
-        'Estipule dias específicos para pedir delivery (ex: apenas no final de semana) e compare preços de corridas com antecedência. Reduzir 3 pedidos no mês pode gerar economia imediata de mais de R$ 150.',
-      transactions: deliveryTxs.map(mapNormalizedToLeakTx),
-    });
-  }
-
-  // --------------------------------------------------------------------------
-  // 4. ASSINATURAS E STREAMINGS RECORRENTES ACUMULADOS
-  // --------------------------------------------------------------------------
-  const subscriptionTxs = currentOutflows.filter((o) => {
+  const subscriptionTxs = leakEligibleOutflows.filter((o) => {
     const desc = o.tx.description ?? '';
     return SUBSCRIPTION_PATTERN.test(desc);
   });
 
-  // Agrupar assinaturas por nome simplificado
+  // Agrupar assinaturas por serviço
   const subGroupMap = new Map<string, NormalizedTx[]>();
   for (const tx of subscriptionTxs) {
     const key = oBrandKey(tx.tx.description || '');
@@ -185,28 +225,104 @@ export function detectMoneyLeaks(
     subGroupMap.set(key, list);
   }
 
-  if (subscriptionTxs.length >= 2 || subscriptionTxs.reduce((s, t) => s + t.amount, 0) >= 100) {
+  if (subscriptionTxs.length >= 2 || subscriptionTxs.reduce((s, t) => s + t.amount, 0) >= 90) {
     const totalSubs = subscriptionTxs.reduce((s, t) => s + t.amount, 0);
     const annualSubs = totalSubs * 12;
+    const servicesList = Array.from(subGroupMap.keys()).join(', ');
     items.push({
       id: 'leak-subscriptions',
       category: 'SUBSCRIPTIONS',
       title: 'Acúmulo de Assinaturas e Serviços Digitais',
-      description: `${subGroupMap.size} serviço(s) e assinatura(s) somam R$ ${totalSubs.toFixed(2)}/mês (projeção de R$ ${annualSubs.toFixed(2)} por ano).`,
+      description: `${subGroupMap.size} serviços ativos (${servicesList}) somam R$ ${totalSubs.toFixed(2)}/mês (projeção de R$ ${annualSubs.toFixed(2)} por ano).`,
       amount: Number(totalSubs.toFixed(2)),
       occurrences: subscriptionTxs.length,
       severity: totalSubs >= 200 || subGroupMap.size >= 4 ? 'WARNING' : 'INFO',
       actionTip:
-        'Reveja os streamings e softwares contratados. Revezar assinaturas (assinar uma de cada vez) ou optar por planos familiares compartilhados corta esse custo pela metade.',
+        'Cancele assinaturas pouco usadas ou faça revezamento (assine uma plataforma por mês e assista às séries acumuladas). Planos familiares compartilhados cortam mais de 60% desse valor.',
       transactions: subscriptionTxs.map(mapNormalizedToLeakTx),
     });
   }
 
   // --------------------------------------------------------------------------
-  // 5. ESTOURO DE CATEGORIAS (Categorias que dispararam vs mês anterior)
+  // 3. COMODIDADE CRÔNICA: DELIVERY & TRANSPORTE COTIDIANO (iFood, Uber, etc.)
+  // --------------------------------------------------------------------------
+  // Para ser ralo crônico, NÃO pode ser um pico de 2 dias de viagem. Deve ter frequência
+  // relevante e dispersão temporal ao longo das semanas.
+  const deliveryTxs = leakEligibleOutflows.filter((o) => {
+    const desc = o.tx.description ?? '';
+    const cat = o.tx.category ?? '';
+    return DELIVERY_TRANSPORT_PATTERN.test(desc) || DELIVERY_TRANSPORT_PATTERN.test(cat);
+  });
+
+  const totalDelivery = deliveryTxs.reduce((s, t) => s + t.amount, 0);
+
+  // Mês anterior
+  const prevDeliveryTxs = previousOutflows.filter((o) => {
+    const desc = o.tx.description ?? '';
+    const cat = o.tx.category ?? '';
+    return DELIVERY_TRANSPORT_PATTERN.test(desc) || DELIVERY_TRANSPORT_PATTERN.test(cat);
+  });
+  const prevTotalDelivery = prevDeliveryTxs.reduce((s, t) => s + t.amount, 0);
+
+  // Verificar dispersão semanal: pelo menos em 2 semanas diferentes ou 5+ pedidos
+  const deliveryDays = Array.from(new Set(deliveryTxs.map((o) => o.date.slice(0, 10))));
+
+  if (deliveryTxs.length >= 5 || (totalDelivery >= 180 && deliveryDays.length >= 3)) {
+    items.push({
+      id: 'leak-delivery-transport',
+      category: 'DELIVERY_TRANSPORT',
+      title: 'Comodidade Crônica: Delivery e Caronas de App',
+      description: `R$ ${totalDelivery.toFixed(2)} gastos em ${deliveryTxs.length} pedidos e corridas distribuídos em ${deliveryDays.length} dias de rotina.`,
+      amount: Number(totalDelivery.toFixed(2)),
+      previousAmount: prevTotalDelivery > 0 ? Number(prevTotalDelivery.toFixed(2)) : undefined,
+      occurrences: deliveryTxs.length,
+      severity: totalDelivery >= 450 || deliveryTxs.length >= 12 ? 'WARNING' : 'INFO',
+      actionTip:
+        'Estipule uma regra clara: delivery apenas no final de semana ou limite a 2 pedidos semanais. Cada 3 pedidos cortados geram economia imediata de R$ 150 a R$ 200/mês.',
+      transactions: deliveryTxs.map(mapNormalizedToLeakTx),
+    });
+  }
+
+  // --------------------------------------------------------------------------
+  // 4. O VERDADEIRO EFEITO CAFEZINHO (Micro-gastos da rotina diária)
+  // --------------------------------------------------------------------------
+  // Pequenas compras (R$ 4 a R$ 40) que acontecem na rotina, EXPURGANDO farmácia/saúde,
+  // assinaturas e gastos de viagens/eventos já isolados.
+  const microTxs = leakEligibleOutflows.filter((o) => {
+    const desc = o.tx.description ?? '';
+    const cat = o.tx.category ?? '';
+    if (o.amount < 4 || o.amount > 40) return false;
+    if (BANK_FEE_PATTERN.test(desc) || BANK_FEE_PATTERN.test(cat)) return false;
+    if (SUBSCRIPTION_PATTERN.test(desc)) return false;
+    if (HEALTH_PHARMACY_PATTERN.test(desc) || HEALTH_PHARMACY_PATTERN.test(cat)) return false;
+    return true;
+  });
+
+  // Só aciona se houver repetitividade real na rotina (>= 7 transações e pelo menos 4 dias distintos)
+  const microDays = Array.from(new Set(microTxs.map((o) => o.date.slice(0, 10))));
+
+  if (microTxs.length >= 7 && microDays.length >= 4) {
+    const totalMicro = microTxs.reduce((s, t) => s + t.amount, 0);
+    const avgMicro = totalMicro / microTxs.length;
+    items.push({
+      id: 'leak-micro-expenses',
+      category: 'MICRO_EXPENSES',
+      title: 'Efeito Cafezinho da Rotina (Micro-gastos Diários)',
+      description: `${microTxs.length} pequenos gastos cotidianos (média R$ ${avgMicro.toFixed(2)}) em lanchonetes, snacks e conveniência somando R$ ${totalMicro.toFixed(2)} ao longo do mês.`,
+      amount: Number(totalMicro.toFixed(2)),
+      occurrences: microTxs.length,
+      severity: microTxs.length >= 14 || totalMicro >= 300 ? 'WARNING' : 'INFO',
+      actionTip:
+        'Defina um teto semanal para pequenas conveniências no Pix/Débito. Pequenos gastos invisíveis de rotina são fáceis de cortar sem alterar sua qualidade de vida.',
+      transactions: microTxs.slice(0, 20).map(mapNormalizedToLeakTx),
+    });
+  }
+
+  // --------------------------------------------------------------------------
+  // 5. ESTOURO DE CATEGORIAS (Comparado à média móvel)
   // --------------------------------------------------------------------------
   const currentByCat = new Map<string, number>();
-  for (const o of currentOutflows) {
+  for (const o of leakEligibleOutflows) {
     const cat = translateCategory(o.tx.category);
     currentByCat.set(cat, (currentByCat.get(cat) ?? 0) + o.amount);
   }
@@ -219,20 +335,20 @@ export function detectMoneyLeaks(
 
   for (const [cat, curAmt] of currentByCat.entries()) {
     const prevAmt = prevByCat.get(cat) ?? 0;
-    // Se aumentou mais de 35% e pelo menos R$ 150 reais
-    if (prevAmt > 50 && curAmt > prevAmt + 150) {
+    // Se aumentou mais de 35% e pelo menos R$ 160 reais
+    if (prevAmt > 50 && curAmt > prevAmt + 160) {
       const diff = curAmt - prevAmt;
       const pctIncrease = ((diff / prevAmt) * 100).toFixed(0);
 
-      const catTxs = currentOutflows
+      const catTxs = leakEligibleOutflows
         .filter((o) => translateCategory(o.tx.category) === cat)
         .sort((a, b) => b.amount - a.amount);
 
       items.push({
         id: `leak-surge-${cat.toLowerCase().replace(/\s+/g, '-')}`,
         category: 'EXPENSE_SURGE',
-        title: `Estouro em ${cat}`,
-        description: `Gastos em "${cat}" saltaram de R$ ${prevAmt.toFixed(2)} para R$ ${curAmt.toFixed(2)} (+${pctIncrease}%, aumento de R$ ${diff.toFixed(2)}).`,
+        title: `Estouro Orçamentário em ${cat}`,
+        description: `Gastos em "${cat}" saltaram de R$ ${prevAmt.toFixed(2)} para R$ ${curAmt.toFixed(2)} (+${pctIncrease}%, alta de R$ ${diff.toFixed(2)}).`,
         amount: Number(diff.toFixed(2)),
         previousAmount: Number(prevAmt.toFixed(2)),
         occurrences: catTxs.length,
@@ -244,30 +360,29 @@ export function detectMoneyLeaks(
   }
 
   // --------------------------------------------------------------------------
-  // 6. GASTOS ATÍPICOS DE ALTO VALOR (Outliers de Consumo)
+  // 6. GASTOS ATÍPICOS DE ALTO VALOR (Grandes Outliers Avulsos)
   // --------------------------------------------------------------------------
-  const nonFixedOutflows = currentOutflows.filter((o) => {
+  const nonFixedOutflows = leakEligibleOutflows.filter((o) => {
     const desc = (o.tx.description || '').toLowerCase();
     return !o.totalInstallments && !SUBSCRIPTION_PATTERN.test(desc) && !BANK_FEE_PATTERN.test(desc);
   });
 
   const sortedByAmt = [...nonFixedOutflows].sort((a, b) => b.amount - a.amount);
-  const largeOutliers = sortedByAmt.slice(0, 3).filter((o) => o.amount >= 250);
+  const largeOutliers = sortedByAmt.slice(0, 3).filter((o) => o.amount >= 300);
 
   if (largeOutliers.length > 0 && totalExpenses > 0) {
     const totalOutliers = largeOutliers.reduce((s, t) => s + t.amount, 0);
-    // Se representam mais de 20% do orçamento
-    if (totalOutliers / totalExpenses >= 0.15) {
+    if (totalOutliers / totalExpenses >= 0.18) {
       items.push({
         id: 'leak-large-outliers',
         category: 'LARGE_OUTLIERS',
         title: 'Grandes Gastos Avulsos / Compras Pesadas',
-        description: `As ${largeOutliers.length} maiores compras avulsas somaram R$ ${totalOutliers.toFixed(2)} (${((totalOutliers / totalExpenses) * 100).toFixed(0)}% de todas as despesas do mês).`,
+        description: `As ${largeOutliers.length} maiores compras avulsas somaram R$ ${totalOutliers.toFixed(2)} (${((totalOutliers / totalExpenses) * 100).toFixed(0)}% de todo o orçamento do mês).`,
         amount: Number(totalOutliers.toFixed(2)),
         occurrences: largeOutliers.length,
         severity: 'INFO',
         actionTip:
-          'Compras avulsas elevadas reduzem o fôlego financeiro. Aplique a "regra das 72 horas" para compras não urgentes acima de R$ 200.',
+          'Compras de valor alto devem ser planejadas com antecedência. Aplique a "regra das 72 horas" para avaliar se a despesa é urgente antes de passar o cartão.',
         transactions: largeOutliers.map(mapNormalizedToLeakTx),
       });
     }
@@ -296,20 +411,24 @@ export function detectMoneyLeaks(
     byCategoryTotals[item.category] = (byCategoryTotals[item.category] || 0) + item.amount;
   }
 
-  // Montar total em ralos (evitando duplicar o mesmo valor caso o ralo seja composto)
-  // Ralos diretos facilmente evitáveis: Tarifas + Micro-gastos + Delivery excedente + Assinaturas
-  const directLeakCategories: LeakCategory[] = ['BANK_FEES', 'MICRO_EXPENSES', 'DELIVERY_TRANSPORT', 'SUBSCRIPTIONS'];
+  // Ralos diretos facilmente evitáveis: Tarifas + Micro-gastos + Delivery excessivo + Assinaturas
+  const directLeakCategories: LeakCategory[] = [
+    'BANK_FEES',
+    'MICRO_EXPENSES',
+    'DELIVERY_TRANSPORT',
+    'SUBSCRIPTIONS',
+  ];
   const totalLeakingAmount = items
     .filter((i) => directLeakCategories.includes(i.category))
     .reduce((s, i) => s + i.amount, 0);
 
   const leakingPercentage = totalExpenses > 0 ? (totalLeakingAmount / totalExpenses) * 100 : 0;
+  // ATENÇÃO: Economia anualizada SÓ multiplica ralos verdadeiramente crônicos!
   const potentialAnnualSavings = totalLeakingAmount * 12;
 
   // Cálculo do Leak Score (0 a 100)
-  // 100 = saúde impecável, deduções conforme a gravidade dos ralos encontrados
   let leakScore = 100;
-  if (byCategoryTotals.BANK_FEES > 0) leakScore -= 20; // Juros/taxas são inaceitáveis
+  if (byCategoryTotals.BANK_FEES > 0) leakScore -= 20; // Juros e tarifas são inaceitáveis
   if (byCategoryTotals.MICRO_EXPENSES > 200) leakScore -= 15;
   if (byCategoryTotals.DELIVERY_TRANSPORT > 300) leakScore -= 15;
   if (byCategoryTotals.SUBSCRIPTIONS > 150) leakScore -= 10;
@@ -320,24 +439,34 @@ export function detectMoneyLeaks(
 
   // Insights resumidos
   const insights: string[] = [];
+
+  // Se houver eventos pontuais detectados, elogie o contexto na primeira linha de insights
+  if (occasionalEvents.length > 0) {
+    for (const ev of occasionalEvents) {
+      insights.push(
+        `✈️ Viagem/Evento isolado detectado: R$ ${ev.totalAmount.toFixed(2)} em ${ev.title.toLowerCase()} (${ev.dateRange}). Tratado como atípico, sem distorcer seus ralos crônicos.`
+      );
+    }
+  }
+
   if (byCategoryTotals.BANK_FEES > 0) {
     insights.push(
-      `🚨 Você pagou R$ ${byCategoryTotals.BANK_FEES.toFixed(2)} em taxas, IOF ou juros este mês. Esse é um valor 100% estancável.`
+      `🚨 Você pagou R$ ${byCategoryTotals.BANK_FEES.toFixed(2)} em tarifas bancárias ou juros. Isso é dinheiro 100% estancável via Resolução 3.919 do Bacen.`
     );
   }
   if (byCategoryTotals.MICRO_EXPENSES > 0) {
     insights.push(
-      `☕ O "Efeito Cafezinho" gerou R$ ${byCategoryTotals.MICRO_EXPENSES.toFixed(2)} em despesas de pequeno porte.`
+      `☕ O "Efeito Cafezinho" da rotina acumulou R$ ${byCategoryTotals.MICRO_EXPENSES.toFixed(2)} em pequenas compras diárias.`
     );
   }
   if (byCategoryTotals.DELIVERY_TRANSPORT > 0) {
     insights.push(
-      `🛵 R$ ${byCategoryTotals.DELIVERY_TRANSPORT.toFixed(2)} foram destinados a apps de delivery e transporte.`
+      `🛵 R$ ${byCategoryTotals.DELIVERY_TRANSPORT.toFixed(2)} foram gastos em apps de delivery e transporte ao longo do mês.`
     );
   }
   if (byCategoryTotals.SUBSCRIPTIONS > 0) {
     insights.push(
-      `📺 Suas assinaturas e serviços recorrentes somam R$ ${byCategoryTotals.SUBSCRIPTIONS.toFixed(2)} todo mês.`
+      `📺 Suas assinaturas e serviços digitais totalizam R$ ${byCategoryTotals.SUBSCRIPTIONS.toFixed(2)}/mês.`
     );
   }
   if (insights.length === 0) {
@@ -352,6 +481,7 @@ export function detectMoneyLeaks(
     leakScore,
     leakingPercentage: Number(leakingPercentage.toFixed(1)),
     items,
+    occasionalEvents,
     byCategoryTotals,
     insights,
   };
@@ -378,6 +508,10 @@ function oBrandKey(desc: string): string {
   if (lower.includes('youtube')) return 'YouTube';
   if (lower.includes('apple') || lower.includes('icloud')) return 'Apple';
   if (lower.includes('google')) return 'Google';
-  if (lower.includes('openai') || lower.includes('chatgpt')) return 'OpenAI / ChatGPT';
-  return displayTitle(desc);
+  if (lower.includes('globo')) return 'Globoplay';
+  if (lower.includes('openai') || lower.includes('chatgpt')) return 'ChatGPT / OpenAI';
+  if (lower.includes('claude')) return 'Claude AI';
+  if (lower.includes('github')) return 'GitHub';
+  if (lower.includes('smartfit') || lower.includes('smart fit')) return 'Smart Fit';
+  return displayTitle(desc).slice(0, 18);
 }

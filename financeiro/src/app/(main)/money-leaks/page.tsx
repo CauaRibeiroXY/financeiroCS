@@ -19,11 +19,19 @@ import {
   CheckCircle2,
   Lightbulb,
   ArrowRight,
+  Plane,
+  Calendar,
+  Info,
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatCurrency } from '@/app/lib/utils/format';
 import { SkeletonCard } from '@/app/components/shared/Skeleton';
-import type { MoneyLeaksAnalysis, MoneyLeakItem, LeakCategory } from '@/app/lib/services/money-leaks';
+import type {
+  MoneyLeaksAnalysis,
+  MoneyLeakItem,
+  LeakCategory,
+  OccasionalEventCluster,
+} from '@/app/lib/services/money-leaks';
 
 const fetcher = (url: string) =>
   fetch(url)
@@ -69,12 +77,17 @@ export default function MoneyLeaksPage() {
   const [period, setPeriod] = useState(currentPeriod());
   const [selectedFilter, setSelectedFilter] = useState<'ALL' | LeakCategory>('ALL');
   const [expandedLeaks, setExpandedLeaks] = useState<Record<string, boolean>>({});
+  const [expandedEvents, setExpandedEvents] = useState<Record<string, boolean>>({});
   const [completedActions, setCompletedActions] = useState<Record<string, boolean>>({});
 
   const { data, isLoading } = useSWR(`/api/money-leaks?period=${period}`, fetcher);
 
   const toggleExpand = (id: string) => {
     setExpandedLeaks((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const toggleEventExpand = (id: string) => {
+    setExpandedEvents((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
   const toggleAction = (id: string) => {
@@ -96,6 +109,7 @@ export default function MoneyLeaksPage() {
 
   const analysis = data;
   const items = analysis?.items ?? [];
+  const occasionalEvents = analysis?.occasionalEvents ?? [];
   const filteredItems = selectedFilter === 'ALL'
     ? items
     : items.filter((item) => item.category === selectedFilter);
@@ -118,11 +132,11 @@ export default function MoneyLeaksPage() {
             <h1 className="text-[#e6edf3] font-semibold text-base flex items-center gap-2">
               Onde Estou Perdendo Dinheiro
               <span className="text-xs font-normal text-[#f85149] bg-[#f85149]/10 border border-[#f85149]/20 px-2 py-0.5 rounded-full">
-                Detector de Ralos
+                Motor Contextual Inteligente
               </span>
             </h1>
             <p className="text-[#8b949e] text-xs">
-              Diagnóstico de despesas invisíveis, tarifas bancárias, assinaturas duplicadas e efeito cafezinho
+              Diferenciação automática entre ralos crônicos reais e viagens/eventos pontuais isolados
             </p>
           </div>
         </div>
@@ -161,11 +175,11 @@ export default function MoneyLeaksPage() {
       <div className="flex-1 p-6 overflow-auto space-y-6">
         {/* KPI Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Total em Ralos */}
+          {/* Total em Ralos Crônicos */}
           <div className="rounded-xl border border-[#30363d] bg-[#161b22] p-4 flex flex-col justify-between">
             <div>
               <span className="text-xs text-[#8b949e] font-medium uppercase tracking-wider">
-                Vazamentos Identificados
+                Vazamentos Crônicos
               </span>
               <div className="mt-1 flex items-baseline gap-2">
                 <span className="text-2xl font-bold text-[#f85149]">
@@ -182,7 +196,7 @@ export default function MoneyLeaksPage() {
           <div className="rounded-xl border border-[#30363d] bg-[#161b22] p-4 flex flex-col justify-between">
             <div>
               <span className="text-xs text-[#8b949e] font-medium uppercase tracking-wider">
-                Economia Potencial Anual
+                Economia Real Projetada
               </span>
               <div className="mt-1 flex items-baseline gap-2">
                 <span className="text-2xl font-bold text-[#3fb950]">
@@ -192,7 +206,7 @@ export default function MoneyLeaksPage() {
               </div>
             </div>
             <p className="text-[11px] text-[#8b949e] mt-2 pt-2 border-t border-[#30363d]/50">
-              Valor recuperado se você estancar esses vazamentos ao longo de 12 meses.
+              Apenas sobre hábitos e tarifas recorrentes (viagens pontuais são expurgadas deste cálculo).
             </p>
           </div>
 
@@ -240,6 +254,101 @@ export default function MoneyLeaksPage() {
           </div>
         </div>
 
+        {/* SEÇÃO: EVENTOS & VIAGENS PONTUAIS IDENTIFICADOS (ISOLADOS DE RALOS) */}
+        {occasionalEvents.length > 0 && (
+          <div className="rounded-xl border border-[#1f6feb]/40 bg-gradient-to-br from-[#161b22] via-[#101e30] to-[#0c1829] p-5 shadow-sm space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#1f6feb]/20 border border-[#1f6feb]/40 flex items-center justify-center text-[#58a6ff]">
+                  <Plane size={16} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-[#e6edf3] flex items-center gap-2">
+                    Eventos & Viagens Pontuais Identificados
+                    <span className="text-[10px] bg-[#1f6feb]/20 text-[#58a6ff] border border-[#1f6feb]/40 px-2 py-0.5 rounded-full font-medium">
+                      Inteligência Contextual Ativa
+                    </span>
+                  </h3>
+                  <p className="text-xs text-[#8b949e]">
+                    Estes gastos ocorreram concentrados em poucos dias específicos e não se repetem nos outros meses. O sistema os isolou para <strong>não distorcer sua rotina</strong> nem multiplicar por 12.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-2 border-t border-[#30363d]/60">
+              {occasionalEvents.map((ev: OccasionalEventCluster) => {
+                const isExpanded = !!expandedEvents[ev.id];
+                return (
+                  <div key={ev.id} className="rounded-lg border border-[#30363d] bg-[#0d1117]/60 overflow-hidden">
+                    <div className="p-4 flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <div className="p-2 rounded-lg bg-[#21262d] text-[#58a6ff] mt-0.5">
+                          <Calendar size={16} />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="text-xs font-semibold text-[#e6edf3]">{ev.title}</h4>
+                            <span className="text-[10px] text-[#79c0ff] bg-[#388bfd]/10 px-2 py-0.5 rounded border border-[#388bfd]/30">
+                              Período: {ev.dateRange}
+                            </span>
+                          </div>
+                          <p className="text-xs text-[#8b949e] mt-1">{ev.reason}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 ml-auto">
+                        <div className="text-right">
+                          <span className="text-sm font-bold text-[#79c0ff] tabular-nums">
+                            {formatCurrency(ev.totalAmount)}
+                          </span>
+                          <p className="text-[10px] text-[#8b949e]">{ev.occurrences}x lançamento(s)</p>
+                        </div>
+                        <button
+                          onClick={() => toggleEventExpand(ev.id)}
+                          className="p-1.5 rounded-lg border border-[#30363d] hover:bg-[#21262d] text-[#8b949e] hover:text-[#e6edf3] transition-colors"
+                          title={isExpanded ? 'Ocultar lançamentos' : 'Ver lançamentos da viagem'}
+                        >
+                          {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {isExpanded && ev.transactions && ev.transactions.length > 0 && (
+                      <div className="px-4 py-3 border-t border-[#30363d] bg-[#161b22]/50">
+                        <div className="overflow-x-auto rounded border border-[#30363d]">
+                          <table className="w-full text-xs text-left">
+                            <thead className="bg-[#21262d] text-[#8b949e]">
+                              <tr>
+                                <th className="px-3 py-1.5">Data</th>
+                                <th className="px-3 py-1.5">Descrição</th>
+                                <th className="px-3 py-1.5 text-right">Valor</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[#30363d]">
+                              {ev.transactions.map((tx, idx) => (
+                                <tr key={idx} className="hover:bg-[#21262d]/50">
+                                  <td className="px-3 py-1.5 text-[#8b949e]">
+                                    {tx.date.split('-').reverse().join('/')}
+                                  </td>
+                                  <td className="px-3 py-1.5 text-[#e6edf3] font-medium">{tx.description}</td>
+                                  <td className="px-3 py-1.5 text-right text-[#79c0ff] font-semibold tabular-nums">
+                                    {formatCurrency(tx.amount)}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Insights Rápidos */}
         {analysis?.insights && analysis.insights.length > 0 && (
           <div className="rounded-xl border border-[#30363d] bg-[#161b22] p-4">
@@ -267,7 +376,7 @@ export default function MoneyLeaksPage() {
                 : 'bg-[#161b22] text-[#8b949e] hover:text-[#e6edf3] border border-[#30363d]'
             }`}
           >
-            Todos os Ralos ({items.length})
+            Todos os Ralos Crônicos ({items.length})
           </button>
           <button
             onClick={() => setSelectedFilter('BANK_FEES')}
@@ -287,7 +396,7 @@ export default function MoneyLeaksPage() {
                 : 'bg-[#161b22] text-[#8b949e] hover:text-[#e6edf3] border border-[#30363d]'
             }`}
           >
-            <Coffee size={13} /> Efeito Cafezinho
+            <Coffee size={13} /> Efeito Cafezinho Real
           </button>
           <button
             onClick={() => setSelectedFilter('DELIVERY_TRANSPORT')}
@@ -347,9 +456,9 @@ export default function MoneyLeaksPage() {
 
               const severityLabel =
                 item.severity === 'CRITICAL'
-                  ? 'Crítico (100% Evitável)'
+                  ? 'Crítico (100% Inútil / Evitável)'
                   : item.severity === 'WARNING'
-                  ? 'Atenção (Gasto Excessivo)'
+                  ? 'Atenção (Gasto Crônico Excessivo)'
                   : 'Oportunidade de Otimização';
 
               return (
@@ -451,49 +560,6 @@ export default function MoneyLeaksPage() {
               );
             })
           )}
-        </div>
-
-        {/* Checklist de Estancamento */}
-        <div className="rounded-xl border border-[#30363d] bg-[#161b22] p-5 space-y-4">
-          <div className="flex items-center gap-2">
-            <ShieldCheck size={18} className="text-[#58a6ff]" />
-            <h2 className="text-sm font-semibold text-[#e6edf3]">
-              Checklist Prático para Estancar Sangrias Financeiras
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-            <label className="flex items-start gap-2.5 p-3 rounded-lg bg-[#0d1117] border border-[#30363d] cursor-pointer hover:border-[#58a6ff]/50 transition-colors">
-              <input type="checkbox" className="mt-0.5 rounded border-[#30363d] text-[#238636] focus:ring-0" />
-              <div>
-                <strong className="text-[#e6edf3] block">Isenção de Tarifas Bancárias</strong>
-                <span className="text-[#8b949e]">Ligue para o seu banco ou acesse o app e selecione o Pacote de Serviços Essenciais (gratuito por lei).</span>
-              </div>
-            </label>
-
-            <label className="flex items-start gap-2.5 p-3 rounded-lg bg-[#0d1117] border border-[#30363d] cursor-pointer hover:border-[#58a6ff]/50 transition-colors">
-              <input type="checkbox" className="mt-0.5 rounded border-[#30363d] text-[#238636] focus:ring-0" />
-              <div>
-                <strong className="text-[#e6edf3] block">Revisão de Assinaturas de Streaming</strong>
-                <span className="text-[#8b949e]">Pause assinaturas que você não assistiu nos últimos 30 dias ou crie plano familiar.</span>
-              </div>
-            </label>
-
-            <label className="flex items-start gap-2.5 p-3 rounded-lg bg-[#0d1117] border border-[#30363d] cursor-pointer hover:border-[#58a6ff]/50 transition-colors">
-              <input type="checkbox" className="mt-0.5 rounded border-[#30363d] text-[#238636] focus:ring-0" />
-              <div>
-                <strong className="text-[#e6edf3] block">Teto para Delivery de Comida</strong>
-                <span className="text-[#8b949e]">Limite pedidos de iFood a 1 ou 2 vezes na semana para estancar micro-gastos acumulados.</span>
-              </div>
-            </label>
-
-            <label className="flex items-start gap-2.5 p-3 rounded-lg bg-[#0d1117] border border-[#30363d] cursor-pointer hover:border-[#58a6ff]/50 transition-colors">
-              <input type="checkbox" className="mt-0.5 rounded border-[#30363d] text-[#238636] focus:ring-0" />
-              <div>
-                <strong className="text-[#e6edf3] block">Filtro das 72 Horas para Compras</strong>
-                <span className="text-[#8b949e]">Espere 3 dias antes de realizar qualquer compra não essencial acima de R$ 100.</span>
-              </div>
-            </label>
-          </div>
         </div>
       </div>
     </div>

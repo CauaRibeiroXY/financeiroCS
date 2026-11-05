@@ -26,7 +26,7 @@ export async function buildFinancialAIContext(): Promise<FinancialContext> {
   const supabase = getSupabaseAdmin();
 
   const accountsReq = supabase.from('accounts').select('*').or('is_ignored.is.null,is_ignored.eq.false');
-  const transactionsReq = supabase.from('transactions').select('*').order('date', { ascending: false }).limit(300);
+  const transactionsReq = supabase.from('transactions').select('*').order('date', { ascending: false }).limit(400);
   const billsReq = supabase.from('credit_card_bills').select('*');
   const investmentsReq = supabase.from('investments').select('*');
   const goalsReq = supabase.from('goals').select('*');
@@ -51,7 +51,6 @@ export async function buildFinancialAIContext(): Promise<FinancialContext> {
   if (accountsRes.error) console.error('Erro accounts:', accountsRes.error);
   if (transactionsRes.error) console.error('Erro transactions:', transactionsRes.error);
   
-  // Se der erro grave nas contas ou transações, vamos lançar o erro para o fallback ser ativado e avisar que o banco falhou
   if (accountsRes.error) throw new Error(`Falha ao buscar contas: ${accountsRes.error.message}`);
   if (transactionsRes.error) throw new Error(`Falha ao buscar transações: ${transactionsRes.error.message}`);
 
@@ -80,7 +79,7 @@ export async function buildFinancialAIContext(): Promise<FinancialContext> {
   const recurrenceAnalysis = detectRecurrences(transactions);
   const recurrences = recurrenceAnalysis.items;
 
-  // Detectar ralos e vazamentos financeiros (onde está perdendo dinheiro)
+  // Detectar ralos e vazamentos financeiros com inteligência contextual
   const leaksAnalysis = detectMoneyLeaks(transactions, accounts, {
     period: curPeriod,
   });
@@ -146,9 +145,17 @@ export async function buildFinancialAIContext(): Promise<FinancialContext> {
     )
     .join('\n');
 
-  // 7. Últimos Lançamentos (Top 20)
+  // 6.1 Eventos e Viagens Pontuais Identificados (NÃO são ralos crônicos)
+  const occasionalEventsSummary = leaksAnalysis.occasionalEvents
+    .map(
+      (e) =>
+        `- ✈️ [EVENTO/VIAGEM PONTUAL]: ${e.title} -> R$ ${e.totalAmount.toFixed(2)} (${e.dateRange}). Motivo: ${e.reason}`
+    )
+    .join('\n');
+
+  // 7. Últimos Lançamentos (Top 25)
   const recentTransactions = transactions
-    .slice(0, 20)
+    .slice(0, 25)
     .map((t) => {
       const typeStr = t.type === 'CREDIT' ? 'RECEITA (+)' : 'DESPESA (-)';
       const amt = Math.abs(Number(t.amount || 0)).toLocaleString('pt-BR', {
@@ -180,7 +187,11 @@ ${creditSummary || 'Nenhum cartão cadastrado'}
 - Resultado Parcial do Mês: R$ ${Number(overview.slices.all.partialResult || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
 - Comparação com Mês Anterior até o mesmo dia: R$ ${overview.slices.all.previousExpensesToDate.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
 
---- ONDE ESTÁ PERDENDO DINHEIRO (RALOS FINANCEIROS DETECTADOS) ---
+--- EVENTOS & VIAGENS PONTUAIS IDENTIFICADOS (NÃO SÃO RALOS CRÔNICOS) ---
+${occasionalEventsSummary || 'Nenhum evento atípico de viagem detectado no período'}
+*(Nota para o modelo: despesas de viagens pontuais ou uso pontual de transporte/metrô em poucos dias NÃO devem ser tratadas como ralos nem multiplicadas por 12)*
+
+--- ONDE ESTÁ PERDENDO DINHEIRO (RALOS CRÔNICOS REAIS) ---
 - Score de Vazamentos: ${leaksAnalysis.leakScore}/100
 - Total em Vazamentos Evitáveis no Mês: R$ ${leaksAnalysis.totalLeakingAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${leaksAnalysis.leakingPercentage}% das despesas)
 - Potencial de Economia Anualizada: R$ ${leaksAnalysis.potentialAnnualSavings.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}

@@ -17,8 +17,9 @@ export async function GET(req: NextRequest) {
     const { searchParams } = req.nextUrl;
     const period = searchParams.get('period') ?? currentPeriod();
 
-    // Buscar histórico para o mês atual e anterior para comparar variações
-    const fromDate = `${addMonths(period, -2)}-01T00:00:00.000Z`;
+    // Buscar histórico de até 4 meses anteriores para cálculo de linha de base histórica
+    // e diferenciação precisa entre despesas rotineiras crônicas vs viagens/eventos pontuais
+    const fromDate = `${addMonths(period, -4)}-01T00:00:00.000Z`;
     const toDate = `${addMonths(period, 1)}-01T00:00:00.000Z`;
 
     const [accounts, transactions] = await Promise.all([

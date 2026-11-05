@@ -3,7 +3,7 @@
 import React from 'react';
 import useSWR from 'swr';
 import Link from 'next/link';
-import { Flame, ArrowRight, AlertTriangle, Coffee, DollarSign, Bike, Tv } from 'lucide-react';
+import { Flame, ArrowRight, AlertTriangle, Coffee, DollarSign, Bike, Tv, Plane } from 'lucide-react';
 import { formatCurrency } from '@/app/lib/utils/format';
 import type { MoneyLeaksAnalysis, LeakCategory } from '@/app/lib/services/money-leaks';
 
@@ -34,9 +34,10 @@ export function MoneyLeaksWidget() {
 
   const totalLeaking = data.totalLeakingAmount;
   const items = data.items || [];
+  const occasionalEvents = data.occasionalEvents || [];
   const topItems = items.slice(0, 3);
 
-  if (items.length === 0 && totalLeaking === 0) return null;
+  if (items.length === 0 && totalLeaking === 0 && occasionalEvents.length === 0) return null;
 
   return (
     <div className="rounded-xl border border-[#f85149]/40 bg-gradient-to-br from-[#161b22] via-[#1c181b] to-[#211417] p-4 sm:p-5 shadow-sm space-y-3.5">
@@ -46,13 +47,18 @@ export function MoneyLeaksWidget() {
             <Flame size={18} />
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-sm font-semibold text-[#e6edf3]">
                 Módulo: Onde Estou Perdendo Dinheiro
               </h3>
               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#f85149]/20 text-[#f85149] border border-[#f85149]/40">
-                {items.length} ralo(s) ativo(s)
+                {items.length} ralo(s) crônico(s)
               </span>
+              {occasionalEvents.length > 0 && (
+                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#1f6feb]/20 text-[#58a6ff] border border-[#1f6feb]/40 flex items-center gap-1">
+                  <Plane size={11} /> {occasionalEvents.length} viagem/evento isolado
+                </span>
+              )}
             </div>
             <p className="text-xs text-[#8b949e] mt-0.5">
               Identificamos{' '}
