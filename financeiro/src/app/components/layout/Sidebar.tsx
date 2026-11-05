@@ -13,12 +13,11 @@ import {
   Target,
   TrendingUp,
   Sparkles,
+  Flame,
 } from 'lucide-react';
 import { cn } from '@/app/lib/utils/cn';
 import { useItems } from '@/app/hooks/useItems';
 import { useAccounts } from '@/app/hooks/useAccounts';
-import { useIdentity } from '@/app/hooks/useIdentity';
-import { getInitials } from '@/app/lib/utils/format';
 import React from 'react';
 import { ConnectButton } from '@/app/components/shared/ConnectButton';
 import { SyncButton } from '@/app/components/shared/SyncButton';
@@ -36,6 +35,11 @@ const navItems: NavItem[] = [
     label: 'Visão Geral',
     href: '/',
     icon: <LayoutDashboard size={18} />,
+  },
+  {
+    label: 'Onde Perco Dinheiro',
+    href: '/money-leaks',
+    icon: <Flame size={18} className="text-[#f85149]" />,
   },
   {
     label: 'Assistente IA',
@@ -74,25 +78,13 @@ const navItems: NavItem[] = [
   },
 ];
 
-// bottom items removed per design – sidebar will no longer show feedback/support/plan links
-const bottomItems: NavItem[] = [];
-
 export function Sidebar() {
   const pathname = usePathname();
-  const { items, mutate: mutateItems } = useItems();
+  const { items } = useItems();
   const firstItemId = items[0]?.item_id;
-  const { identity } = useIdentity(firstItemId);
   const { accounts } = useAccounts(firstItemId);
   const { mutate } = useSWRConfig();
   const [collapsed, setCollapsed] = React.useState(false);
-
-  const displayName =
-    identity?.full_name ||
-    identity?.company_name ||
-    'Usuário';
-
-  const email = identity?.emails?.[0]?.value || '';
-  const initials = getInitials(displayName);
 
   return (
     <aside className={cn(
@@ -169,7 +161,6 @@ export function Sidebar() {
         {/* Separator */}
         <div className="my-4 border-t border-[#30363d]" />
 
-
         {/* Institutions count */}
         {accounts.length > 0 && (
           <div className="px-2">
@@ -198,9 +189,6 @@ export function Sidebar() {
           </div>
         )}
       </nav>
-
-      {/* Bottom items removed */}
-      {/* sidebar is now retrátil; no links below */}
 
       {/* footer buttons: sync and connect */}
       <div className={cn(

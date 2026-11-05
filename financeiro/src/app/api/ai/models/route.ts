@@ -1,5 +1,12 @@
 import { NextResponse } from 'next/server';
 
+interface GoogleGeminiModel {
+  name: string;
+  displayName?: string;
+  description?: string;
+  supportedGenerationMethods?: string[];
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
@@ -37,16 +44,16 @@ export async function POST(req: Request) {
     }
 
     const data = await response.json();
-    const rawModels: any[] = data.models || [];
+    const rawModels: GoogleGeminiModel[] = data.models || [];
 
     // Filtrar apenas modelos que suportam geração de conteúdo (chat)
     const chatModels = rawModels
-      .filter((m: any) =>
+      .filter((m: GoogleGeminiModel) =>
         Array.isArray(m.supportedGenerationMethods) &&
         m.supportedGenerationMethods.includes('generateContent')
       )
-      .map((m: any) => {
-        // O campo 'name' da API vem no formato "models/gemini-1.5-flash" ou "models/gemini-pro"
+      .map((m: GoogleGeminiModel) => {
+        // O campo 'name' da API vem no formato "models/gemini-1.5-flash"
         const cleanId = m.name.replace(/^models\//, '');
         return {
           id: cleanId,
@@ -57,10 +64,11 @@ export async function POST(req: Request) {
       });
 
     return NextResponse.json({ models: chatModels });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Erro na rota /api/ai/models:', err);
+    const errorMessage = err instanceof Error ? err.message : 'Erro interno ao consultar lista de modelos.';
     return NextResponse.json(
-      { error: err.message || 'Erro interno ao consultar lista de modelos.' },
+      { error: errorMessage },
       { status: 500 }
     );
   }

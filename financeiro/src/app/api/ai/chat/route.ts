@@ -32,69 +32,117 @@ export async function POST(req: Request) {
     }
 
     // Modelo selecionado (removendo prefixo 'models/' se presente para evitar duplicação)
-    const targetModelClean = (selectedModel || 'gemini-1.5-flash').replace(/^models\//, '');
+    let targetModelClean = (selectedModel || 'gemini-2.5-flash').replace(/^models\//, '');
+
+    // Sanitizar modelos inexistentes (ex: gemini-3.x que causavam erro 404 no Google)
+    if (!targetModelClean || targetModelClean.startsWith('gemini-3.') || targetModelClean === 'gemini-flash-latest') {
+      targetModelClean = 'gemini-2.5-flash';
+    }
 
     // 1. Compilar contexto financeiro atualizado das finanças do usuário
     let financialContext = '';
     try {
       const contextData = await buildFinancialAIContext();
       financialContext = contextData.summaryText;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Erro ao construir contexto financeiro:', err);
       financialContext = '(Aviso: Não foi possível carregar o histórico financeiro completo do banco de dados no momento.)';
     }
 
     // 2. Instruções do Sistema (System Instruction) para atuação como consultor financeiro
     const systemInstruction = `
-Você é o **Assistente Financeiro IA**, um especialista em finanças pessoais e planejamento orçamentário integrado diretamente ao painel de controle do usuário.
+Você é o **Assistente Financeiro IA**, um especialista em finanças pessoais, corte de gastos, eliminação de ralos financeiros e planejamento orçamentário integrado diretamente ao painel de controle do usuário.
 
 SEU OBJETIVO:
-- Analisar com precisão os dados financeiros reais fornecidos no contexto (saldos, faturas de cartão, investimentos, receitas, despesas por categoria e recorrências).
-- Responder às dúvidas do usuário com clareza, empatia e objetividade prática.
-- Identificar estouros de orçamento, contas em risco, faturas altas ou oportunidades reais de economia.
+- Analisar com precisão os dados financeiros reais fornecidos no contexto (saldos, faturas de cartão, investimentos, receitas, despesas por categoria, recorrências e ralos de dinheiro detectados).
+- Responder às dúvidas do usuário com clareza, empatia, tom encorajador e objetividade prática.
+- Identificar vazamentos ("ralos de dinheiro"), estouros de orçamento, contas em risco, faturas altas ou oportunidades reais de economia imediata.
 - Dar respostas formatadas em GitHub Flavored Markdown (com tópicos claros, tabelas quando apropriado e valores sempre formatados em R$).
 
 REGRAS RÍGIDAS DE ATUAÇÃO:
 1. Baseie-se ESTRITAMENTE nos dados reais do contexto financeiro fornecido abaixo. Não invente transações nem saldos fictícios.
-2. Seja direto e encorajador. Evite termos jargões bancários desnecessários.
-3. Ao sugerir cortes de gastos, foque primeiro em categorias de alta volatilidade (ex: Restaurantes, Lazer, Assinaturas duplicadas).
+2. Seja direto e prático. Mostre onde o usuário está perdendo dinheiro e quais ações imediatas tomar para estancar o ralo.
+3. Ao sugerir cortes de gastos, foque primeiro em tarifas bancárias/juros (100% evitáveis), compras por impulso/delivery excessivo e assinaturas duplicadas ou esquecidas.
 4. Caso o usuário pergunte algo que não está nos dados, informe respeitosamente o que você consegue ver no relatório atual.
 `.trim();
 
-    // 3. Formatar histórico de mensagens para a estrutura esperada pela API do Gemini
-    const contents = messages.map((msg: ChatMessage, index: number) => {
-      const geminiRole = msg.role === 'assistant' ? 'model' : 'user';
+    // 3. Filtrar mensagens válidas
+    const validMessages = messages.filter(
+      (m: ChatMessage) => m && typeof m.content === 'string' && m.content.trim().length > 0
+    );
 
+    // No Gemini, o primeiro turno em 'contents' OBRIGATORIAMENTE deve ter role 'user'.
+    // Descartamos qualquer mensagem inicial do assistente (ex: boas-vindas da interface).
+    let startIndex = 0;
+    while (startIndex < validMessages.length && validMessages[startIndex].role === 'assistant') {
+      startIndex++;
+    }
+
+    const cleanHistory = validMessages.slice(startIndex);
+    if (cleanHistory.length === 0) {
+      return NextResponse.json(
+        { error: 'Nenhuma mensagem de usuário encontrada para enviar.' },
+        { status: 400 }
+      );
+    }
+
+    // Formatar histórico garantindo turnos alternados (user -> model -> user)
+    const contents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
+
+    cleanHistory.forEach((msg: ChatMessage, index: number) => {
+      const geminiRole = msg.role === 'assistant' ? 'model' : 'user';
       let textContent = msg.content;
-      if (index === 0 && msg.role === 'user') {
-        textContent = `[DADOS FINANCEIROS ATUAIS DO USUÁRIO]:\n${financialContext}\n\n[PERGUNTA DO USUÁRIO]:\n${msg.content}`;
+
+      // Injeta os dados financeiros na PRIMEIRA mensagem do usuário
+      if (index === 0 && geminiRole === 'user') {
+        textContent = `[DADOS FINANCEIROS ATUAIS DO USUÁRIO]:\n${financialContext}\n\n[MENSAGEM DO USUÁRIO]:\n${msg.content}`;
       }
 
-      return {
-        role: geminiRole,
-        parts: [{ text: textContent }],
-      };
+      // Se o último turno já tiver o mesmo role, agrupa o texto em vez de quebrar a alternância
+      if (contents.length > 0 && contents[contents.length - 1].role === geminiRole) {
+        contents[contents.length - 1].parts[0].text += `\n\n${textContent}`;
+      } else {
+        contents.push({
+          role: geminiRole,
+          parts: [{ text: textContent }],
+        });
+      }
     });
 
     // 4. Fazer a requisição HTTP para a API do Google Gemini
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${targetModelClean}:generateContent?key=${apiKey}`;
-
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+    const bodyPayload = {
+      systemInstruction: {
+        parts: [{ text: systemInstruction }],
       },
-      body: JSON.stringify({
-        system_instruction: {
-          parts: [{ text: systemInstruction }],
+      contents,
+      generationConfig: {
+        temperature: 0.4,
+        maxOutputTokens: 2048,
+      },
+    };
+
+    const callGemini = async (modelName: string) => {
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+      return fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        contents,
-        generationConfig: {
-          temperature: 0.4,
-          maxOutputTokens: 2048,
-        },
-      }),
-    });
+        body: JSON.stringify(bodyPayload),
+      });
+    };
+
+    let response = await callGemini(targetModelClean);
+
+    // Fallback inteligente: se o modelo retornar 404 (não encontrado na chave), tenta gemini-1.5-flash
+    if (!response.ok && response.status === 404 && targetModelClean !== 'gemini-1.5-flash') {
+      console.warn(`Modelo ${targetModelClean} retornou 404. Tentando fallback para gemini-1.5-flash...`);
+      const fallbackResponse = await callGemini('gemini-1.5-flash');
+      if (fallbackResponse.ok) {
+        response = fallbackResponse;
+        targetModelClean = 'gemini-1.5-flash';
+      }
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -120,10 +168,11 @@ REGRAS RÍGIDAS DE ATUAÇÃO:
       reply: assistantReply,
       modelUsed: targetModelClean,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Erro na rota /api/ai/chat:', err);
+    const errorMessage = err instanceof Error ? err.message : 'Erro interno ao processar conversa.';
     return NextResponse.json(
-      { error: err.message || 'Erro interno ao processar conversa.' },
+      { error: errorMessage },
       { status: 500 }
     );
   }

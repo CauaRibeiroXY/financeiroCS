@@ -1,6 +1,7 @@
 import { getSupabaseAdmin } from '@/app/lib/supabase/client';
 import { buildOverview } from './overview';
 import { detectRecurrences } from './recurrence';
+import { detectMoneyLeaks } from './money-leaks';
 import type {
   AccountRecord,
   CreditCardBillRecord,
@@ -16,6 +17,8 @@ export interface FinancialContext {
     monthlyExpenses: number;
     monthlyIncome: number;
     openBillsTotal: number;
+    leakingAmount: number;
+    leakScore: number;
   };
 }
 
@@ -66,6 +69,7 @@ export async function buildFinancialAIContext(): Promise<FinancialContext> {
     year: 'numeric',
   });
   const todayYmd = now.toISOString().split('T')[0];
+  const curPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
   // Calcular métricas agregadas via overview service
   const overview = buildOverview(transactions, accounts, bills, investments, {
@@ -75,6 +79,11 @@ export async function buildFinancialAIContext(): Promise<FinancialContext> {
   // Detectar recorrências
   const recurrenceAnalysis = detectRecurrences(transactions);
   const recurrences = recurrenceAnalysis.items;
+
+  // Detectar ralos e vazamentos financeiros (onde está perdendo dinheiro)
+  const leaksAnalysis = detectMoneyLeaks(transactions, accounts, {
+    period: curPeriod,
+  });
 
   // 1. Resumo de Contas e Saldos
   const accountSummary = accounts
@@ -129,7 +138,15 @@ export async function buildFinancialAIContext(): Promise<FinancialContext> {
     })
     .join('\n');
 
-  // 6. Últimos Lançamentos (Top 20)
+  // 6. Ralos Financeiros (Onde o usuário está perdendo dinheiro)
+  const leaksSummary = leaksAnalysis.items
+    .map(
+      (l) =>
+        `- [${l.severity}] ${l.title}: R$ ${l.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${l.occurrences}x) -> Ação: ${l.actionTip}`
+    )
+    .join('\n');
+
+  // 7. Últimos Lançamentos (Top 20)
   const recentTransactions = transactions
     .slice(0, 20)
     .map((t) => {
@@ -163,6 +180,12 @@ ${creditSummary || 'Nenhum cartão cadastrado'}
 - Resultado Parcial do Mês: R$ ${Number(overview.slices.all.partialResult || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
 - Comparação com Mês Anterior até o mesmo dia: R$ ${overview.slices.all.previousExpensesToDate.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
 
+--- ONDE ESTÁ PERDENDO DINHEIRO (RALOS FINANCEIROS DETECTADOS) ---
+- Score de Vazamentos: ${leaksAnalysis.leakScore}/100
+- Total em Vazamentos Evitáveis no Mês: R$ ${leaksAnalysis.totalLeakingAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${leaksAnalysis.leakingPercentage}% das despesas)
+- Potencial de Economia Anualizada: R$ ${leaksAnalysis.potentialAnnualSavings.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+${leaksSummary || 'Nenhum ralo crítico detectado no período'}
+
 --- PRINCIPAIS GASTOS POR CATEGORIA (MÊS ATUAL) ---
 ${topCategories || 'Sem gastos por categoria'}
 
@@ -187,6 +210,8 @@ ${recentTransactions || 'Nenhuma transação recente'}
       monthlyExpenses: overview.slices.all.totalExpenses,
       monthlyIncome: overview.slices.all.totalIncome || 0,
       openBillsTotal: overview.balances.openBillsTotal,
+      leakingAmount: leaksAnalysis.totalLeakingAmount,
+      leakScore: leaksAnalysis.leakScore,
     },
   };
 }

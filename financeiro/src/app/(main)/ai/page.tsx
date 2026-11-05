@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Sparkles,
   Settings,
@@ -14,6 +14,8 @@ import {
   ChevronDown,
   ChevronUp,
   Smartphone,
+  RefreshCw,
+  ExternalLink,
 } from 'lucide-react';
 
 interface Message {
@@ -31,22 +33,33 @@ interface GeminiModel {
 
 const DEFAULT_MODELS: GeminiModel[] = [
   {
-    id: 'gemini-3.6-flash',
-    name: 'Gemini 3.6 Flash (Recomendado)',
-    description: 'Ultra rápido e eficiente para tarefas do dia a dia',
+    id: 'gemini-2.5-flash',
+    name: 'Gemini 2.5 Flash (Recomendado)',
+    description: 'Ultra rápido, inteligente e ideal para finanças',
   },
   {
-    id: 'gemini-3.5-flash',
-    name: 'Gemini 3.5 Flash',
-    description: 'Versão anterior estável',
-  }
+    id: 'gemini-2.0-flash',
+    name: 'Gemini 2.0 Flash',
+    description: 'Alta velocidade e precisão de análise',
+  },
+  {
+    id: 'gemini-1.5-flash',
+    name: 'Gemini 1.5 Flash',
+    description: 'Versão estável com ampla cota gratuita',
+  },
+  {
+    id: 'gemini-1.5-pro',
+    name: 'Gemini 1.5 Pro',
+    description: 'Raciocínio avançado para planejamento orçamentário profundo',
+  },
 ];
 
 const SUGGESTED_PROMPTS = [
+  '💸 Onde estou perdendo dinheiro este mês e o que cortar primeiro?',
+  '🔍 Identifique tarifas bancárias, assinaturas esquecidas e efeito cafezinho.',
   '📊 Faça um diagnóstico geral das minhas finanças este mês.',
   '💡 Onde posso cortar despesas para economizar mais?',
   '💳 Qual a situação das minhas faturas de cartão de crédito?',
-  '🔄 Quais são minhas maiores assinaturas e despesas recorrentes?',
   '🎯 Analise meu saldo e progresso nas metas financeiras.',
 ];
 
@@ -85,6 +98,45 @@ function MarkdownRenderer({ content }: { content: string }) {
               {formatInline(text)}
             </h4>
           );
+        }
+
+        // Tabelas simples em Markdown
+        if (trimmed.includes('|') && trimmed.split('\n').length >= 2) {
+          const rows = trimmed.split('\n').filter((r) => r.trim().startsWith('|'));
+          if (rows.length >= 2) {
+            const headerCols = rows[0].split('|').slice(1, -1).map((c) => c.trim());
+            const dataRows = rows.slice(2); // pula cabeçalho e separador
+
+            return (
+              <div key={pIdx} className="overflow-x-auto my-2 rounded-lg border border-[#30363d]">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-[#21262d] text-[#e6edf3]">
+                    <tr>
+                      {headerCols.map((col, cIdx) => (
+                        <th key={cIdx} className="px-3 py-2 font-semibold">
+                          {formatInline(col)}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#30363d] bg-[#161b22]">
+                    {dataRows.map((row, rIdx) => {
+                      const cols = row.split('|').slice(1, -1).map((c) => c.trim());
+                      return (
+                        <tr key={rIdx} className="hover:bg-[#21262d]/50">
+                          {cols.map((col, cIdx) => (
+                            <td key={cIdx} className="px-3 py-2 text-[#e6edf3]">
+                              {formatInline(col)}
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            );
+          }
         }
 
         // Listas com marcadores (- ou *)
@@ -151,7 +203,9 @@ function formatInline(text: string): React.ReactNode {
 export default function AIAssistantPage() {
   const [apiKey, setApiKey] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
-  const [selectedModel, setSelectedModel] = useState('gemini-3.6-flash');
+  const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
+  const [availableModels, setAvailableModels] = useState<GeminiModel[]>(DEFAULT_MODELS);
+  const [fetchingModels, setFetchingModels] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
   const [configSaved, setConfigSaved] = useState(false);
   const [savingServer, setSavingServer] = useState(false);
@@ -162,7 +216,7 @@ export default function AIAssistantPage() {
       id: 'welcome',
       role: 'assistant',
       content:
-        'Olá! Sou seu **Assistente Financeiro com Google Gemini**.\n\nJá analisei seus dados de saldos, faturas, gastos do mês e metas. Como posso ajudar você a organizar ou economizar hoje?\n\n- Escolha uma das perguntas rápidas abaixo ou digite sua dúvida!',
+        'Olá! Sou seu **Assistente Financeiro com Google Gemini**.\n\nJá analisei seus dados de saldos, faturas, gastos do mês, metas e **ralos financeiros** (onde você pode estar perdendo dinheiro). Como posso ajudar você hoje?\n\n- Escolha uma das perguntas rápidas abaixo ou digite sua dúvida!',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -171,6 +225,37 @@ export default function AIAssistantPage() {
   const [error, setError] = useState<string | null>(null);
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'failed'>('idle');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Buscar modelos liberados para a API Key do usuário
+  const fetchAvailableModels = useCallback(async (keyToUse?: string) => {
+    const targetKey = (keyToUse || apiKey).trim();
+    if (!targetKey) return;
+
+    setFetchingModels(true);
+    try {
+      const res = await fetch('/api/ai/models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: targetKey }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.models) && data.models.length > 0) {
+          setAvailableModels(data.models);
+          // Se o modelo atual não está na lista, seleciona o primeiro
+          const exists = data.models.some((m: GeminiModel) => m.id === selectedModel);
+          if (!exists) {
+            setSelectedModel(data.models[0].id);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Erro ao buscar modelos:', err);
+    } finally {
+      setFetchingModels(false);
+    }
+  }, [apiKey, selectedModel]);
 
   // Carregar configurações centralizadas da API (do servidor / banco de dados)
   useEffect(() => {
@@ -187,35 +272,41 @@ export default function AIAssistantPage() {
             loadedModel = localStorage.getItem('gemini_selected_model') || '';
           }
 
-          if (loadedKey) setApiKey(loadedKey);
-          if (loadedModel) {
-            const isValidModel = DEFAULT_MODELS.some(m => m.id === loadedModel);
-            setSelectedModel(isValidModel ? loadedModel : 'gemini-3.6-flash');
+          if (loadedKey) {
+            setApiKey(loadedKey);
+            fetchAvailableModels(loadedKey);
           }
+
+          if (loadedModel && !loadedModel.startsWith('gemini-3.')) {
+            setSelectedModel(loadedModel);
+          } else {
+            setSelectedModel('gemini-2.5-flash');
+          }
+
           if (!loadedKey) setShowConfig(true);
         }
       } catch {
         const localKey = localStorage.getItem('gemini_api_key') || '';
         if (localKey) {
           setApiKey(localKey);
+          fetchAvailableModels(localKey);
         }
       }
     }
 
     loadSettings();
-  }, []);
+  }, [fetchAvailableModels]);
 
   // Rolar para o final do chat
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
-  // Salvar configurações de forma sincronizada no Servidor / Banco de Dados (funciona no PC e Celular)
+  // Salvar configurações
   const handleSaveConfig = async () => {
     setSavingServer(true);
     setError(null);
 
-    // Salvar também no localStorage como cache local
     localStorage.setItem('gemini_api_key', apiKey.trim());
     localStorage.setItem('gemini_selected_model', selectedModel);
 
@@ -234,7 +325,6 @@ export default function AIAssistantPage() {
         setTimeout(() => setConfigSaved(false), 3500);
       }
     } catch {
-      // Mesmo se o POST falhar, localstorage foi salvo
       setConfigSaved(true);
       setTimeout(() => setConfigSaved(false), 3500);
     } finally {
@@ -242,7 +332,7 @@ export default function AIAssistantPage() {
     }
   };
 
-  // Testar a conexão da chave com o endpoint
+  // Testar conexão da chave
   const handleTestConnection = async () => {
     setTestStatus('testing');
     try {
@@ -285,16 +375,21 @@ export default function AIAssistantPage() {
     setError(null);
 
     try {
+      // Filtrar mensagem inicial local de boas-vindas para o Gemini receber histórico limpo começando em 'user'
+      const historyToSend = newMessagesHistory
+        .filter((m) => m.id !== 'welcome')
+        .map((m) => ({
+          role: m.role,
+          content: m.content,
+        }));
+
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           apiKey: apiKey.trim(),
           model: selectedModel,
-          messages: newMessagesHistory.map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
+          messages: historyToSend,
         }),
       });
 
@@ -312,8 +407,9 @@ export default function AIAssistantPage() {
       };
 
       setMessages((prev) => [...prev, assistantMsg]);
-    } catch (err: any) {
-      setError(err.message || 'Falha ao conectar com o serviço de IA.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Falha ao conectar com o serviço de IA.';
+      setError(message);
     } finally {
       setIsLoading(false);
     }
@@ -335,7 +431,7 @@ export default function AIAssistantPage() {
               </span>
             </h1>
             <p className="text-[#8b949e] text-xs">
-              Análise em tempo real dos seus saldos, faturas e inteligência orçamentária
+              Análise em tempo real dos seus saldos, faturas, metas e detecção de onde você está perdendo dinheiro
             </p>
           </div>
         </div>
@@ -358,11 +454,11 @@ export default function AIAssistantPage() {
             <div className="flex items-center justify-between">
               <h2 className="text-xs font-semibold text-[#8b949e] uppercase tracking-wider flex items-center gap-2">
                 <Key size={14} className="text-[#58a6ff]" />
-                Configuração do Google Gemini API (Sincronizada entre PC e Celular)
+                Configuração da API do Google Gemini
               </h2>
               {configSaved && (
                 <span className="text-xs text-green-400 flex items-center gap-1">
-                  <CheckCircle2 size={14} /> Configurações salvas no servidor para todos os seus dispositivos!
+                  <CheckCircle2 size={14} /> Configurações salvas para todos os seus dispositivos!
                 </span>
               )}
             </div>
@@ -370,9 +466,19 @@ export default function AIAssistantPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Campo para API Key */}
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-[#e6edf3]">
-                  Sua Chave de API (Gemini API Key):
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium text-[#e6edf3]">
+                    Sua Chave de API (Gemini API Key):
+                  </label>
+                  <a
+                    href="https://aistudio.google.com/app/apikey"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[11px] text-[#58a6ff] hover:underline flex items-center gap-1"
+                  >
+                    Obter chave gratuita <ExternalLink size={10} />
+                  </a>
+                </div>
                 <div className="flex gap-2">
                   <input
                     type={showApiKey ? 'text' : 'password'}
@@ -391,26 +497,37 @@ export default function AIAssistantPage() {
                 </div>
                 <p className="text-[11px] text-[#8b949e] flex items-center gap-1 pt-0.5">
                   <Smartphone size={12} className="text-[#58a6ff]" />
-                  Configuração salva no servidor. Disponível automaticamente no seu celular e outros dispositivos.
+                  A chave é salva sincronizada no seu banco para funcionar no PC e celular.
                 </p>
               </div>
 
-              {/* Seletor de Modelo (Estático) */}
+              {/* Seletor de Modelo */}
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-[#e6edf3]">Modelo de IA:</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium text-[#e6edf3]">Modelo de IA:</label>
+                  <button
+                    type="button"
+                    onClick={() => fetchAvailableModels()}
+                    disabled={fetchingModels || !apiKey.trim()}
+                    className="text-[11px] text-[#58a6ff] hover:underline disabled:opacity-50 flex items-center gap-1"
+                  >
+                    <RefreshCw size={11} className={fetchingModels ? 'animate-spin' : ''} />
+                    Atualizar lista da minha chave
+                  </button>
+                </div>
                 <select
                   value={selectedModel}
                   onChange={(e) => setSelectedModel(e.target.value)}
                   className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg px-3 py-2 text-xs text-[#e6edf3] focus:outline-none focus:border-[#58a6ff]"
                 >
-                  {DEFAULT_MODELS.map((m) => (
+                  {availableModels.map((m) => (
                     <option key={m.id} value={m.id}>
-                      {m.name} — {m.description}
+                      {m.name} {m.description ? `— ${m.description}` : ''}
                     </option>
                   ))}
                 </select>
                 <p className="text-[11px] text-[#8b949e]">
-                  O modelo Flash é ultra-rápido e recomendado para a maioria das tarefas.
+                  O modelo Flash (2.5 ou 1.5) é recomendado pela rapidez e ampla cota gratuita.
                 </p>
               </div>
             </div>
@@ -436,12 +553,12 @@ export default function AIAssistantPage() {
 
               {testStatus === 'success' && (
                 <span className="text-xs text-green-400 flex items-center gap-1">
-                  <CheckCircle2 size={14} /> Conexão OK!
+                  <CheckCircle2 size={14} /> Conexão estabelecida com sucesso!
                 </span>
               )}
               {testStatus === 'failed' && (
                 <span className="text-xs text-red-400 flex items-center gap-1">
-                  <AlertCircle size={14} /> Falha na conexão. Verifique a chave.
+                  <AlertCircle size={14} /> Falha na conexão. Verifique se a chave de API é válida.
                 </span>
               )}
             </div>
@@ -501,7 +618,7 @@ export default function AIAssistantPage() {
               </div>
               <div className="bg-[#161b22] border border-[#30363d] rounded-xl rounded-bl-none p-4 flex items-center gap-3 text-xs text-[#8b949e]">
                 <Loader2 size={16} className="animate-spin text-[#58a6ff]" />
-                <span>Analisando dados financeiros e elaborando resposta...</span>
+                <span>Analisando suas contas, gastos e ralos de dinheiro para elaborar resposta...</span>
               </div>
             </div>
           )}
@@ -541,7 +658,7 @@ export default function AIAssistantPage() {
           >
             <input
               type="text"
-              placeholder="Pergunte sobre seus gastos, faturas ou orçamento..."
+              placeholder="Pergunte sobre seus gastos, faturas, onde está perdendo dinheiro..."
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               disabled={isLoading}

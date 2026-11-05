@@ -12,6 +12,7 @@ import { CreditCardBillCard } from '@/app/components/dashboard/CreditCardBillCar
 import { CreditLimitCard } from '@/app/components/dashboard/CreditLimitCard';
 import { FixedExpensesCard } from '@/app/components/dashboard/FixedExpensesCard';
 import { OverviewFilters } from '@/app/components/dashboard/OverviewFilters';
+import { MoneyLeaksWidget } from '@/app/components/dashboard/MoneyLeaksWidget';
 import type { CreditMode, OverviewScope, OverviewSlice } from '@/app/lib/services/overview';
 
 const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -92,6 +93,11 @@ export default function DashboardPage() {
 
         {(isLoading || items.length > 0) && (
           <>
+            {/* Widget de Ralos Financeiros (Onde estou perdendo dinheiro) */}
+            <div className="mb-5">
+              <MoneyLeaksWidget />
+            </div>
+
             {/* Legenda do recorte: sem isso o mesmo número muda de significado
                 entre abas sem aviso. */}
             {slice && (
