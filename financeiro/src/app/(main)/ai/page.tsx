@@ -33,24 +33,29 @@ interface GeminiModel {
 
 const DEFAULT_MODELS: GeminiModel[] = [
   {
+    id: 'gemini-3.8-flash',
+    name: 'Gemini 3.8 Flash (Recomendado)',
+    description: 'Flagship mais avançado para raciocínio financeiro e respostas rápidas',
+  },
+  {
+    id: 'gemini-3.6-flash',
+    name: 'Gemini 3.6 Flash',
+    description: 'Versão estável de alta velocidade',
+  },
+  {
+    id: 'gemini-3.5-flash-lite',
+    name: 'Gemini 3.5 Flash-Lite',
+    description: 'Ultra econômico e ideal para tarefas simples',
+  },
+  {
+    id: 'gemini-3.1-pro-preview',
+    name: 'Gemini 3.1 Pro Preview',
+    description: 'Raciocínio profundo para planejamento orçamentário complexo',
+  },
+  {
     id: 'gemini-2.5-flash',
-    name: 'Gemini 2.5 Flash (Recomendado)',
-    description: 'Ultra rápido, inteligente e ideal para finanças',
-  },
-  {
-    id: 'gemini-2.0-flash',
-    name: 'Gemini 2.0 Flash',
-    description: 'Alta velocidade e precisão de análise',
-  },
-  {
-    id: 'gemini-1.5-flash',
-    name: 'Gemini 1.5 Flash',
-    description: 'Versão estável com ampla cota gratuita',
-  },
-  {
-    id: 'gemini-1.5-pro',
-    name: 'Gemini 1.5 Pro',
-    description: 'Raciocínio avançado para planejamento orçamentário profundo',
+    name: 'Gemini 2.5 Flash',
+    description: 'Versão anterior com boa estabilidade',
   },
 ];
 
@@ -203,7 +208,7 @@ function formatInline(text: string): React.ReactNode {
 export default function AIAssistantPage() {
   const [apiKey, setApiKey] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
-  const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
+  const [selectedModel, setSelectedModel] = useState('gemini-3.8-flash');
   const [availableModels, setAvailableModels] = useState<GeminiModel[]>(DEFAULT_MODELS);
   const [fetchingModels, setFetchingModels] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
@@ -277,10 +282,10 @@ export default function AIAssistantPage() {
             fetchAvailableModels(loadedKey);
           }
 
-          if (loadedModel && !loadedModel.startsWith('gemini-3.')) {
+          if (loadedModel) {
             setSelectedModel(loadedModel);
           } else {
-            setSelectedModel('gemini-2.5-flash');
+            setSelectedModel('gemini-3.8-flash');
           }
 
           if (!loadedKey) setShowConfig(true);
@@ -527,7 +532,7 @@ export default function AIAssistantPage() {
                   ))}
                 </select>
                 <p className="text-[11px] text-[#8b949e]">
-                  O modelo Flash (2.5 ou 1.5) é recomendado pela rapidez e ampla cota gratuita.
+                  O modelo Flash (3.8 ou 3.6) é ultra rápido, inteligente e ideal para finanças.
                 </p>
               </div>
             </div>

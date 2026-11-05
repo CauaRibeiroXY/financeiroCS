@@ -32,12 +32,7 @@ export async function POST(req: Request) {
     }
 
     // Modelo selecionado (removendo prefixo 'models/' se presente para evitar duplicação)
-    let targetModelClean = (selectedModel || 'gemini-2.5-flash').replace(/^models\//, '');
-
-    // Sanitizar modelos inexistentes (ex: gemini-3.x que causavam erro 404 no Google)
-    if (!targetModelClean || targetModelClean.startsWith('gemini-3.') || targetModelClean === 'gemini-flash-latest') {
-      targetModelClean = 'gemini-2.5-flash';
-    }
+    let targetModelClean = (selectedModel || 'gemini-3.8-flash').replace(/^models\//, '');
 
     // 1. Compilar contexto financeiro atualizado das finanças do usuário
     let financialContext = '';
@@ -134,13 +129,19 @@ REGRAS RÍGIDAS DE ATUAÇÃO:
 
     let response = await callGemini(targetModelClean);
 
-    // Fallback inteligente: se o modelo retornar 404 (não encontrado na chave), tenta gemini-1.5-flash
-    if (!response.ok && response.status === 404 && targetModelClean !== 'gemini-1.5-flash') {
-      console.warn(`Modelo ${targetModelClean} retornou 404. Tentando fallback para gemini-1.5-flash...`);
-      const fallbackResponse = await callGemini('gemini-1.5-flash');
-      if (fallbackResponse.ok) {
-        response = fallbackResponse;
-        targetModelClean = 'gemini-1.5-flash';
+    // Fallback inteligente: se o modelo retornar 404 (não encontrado na chave), tenta gemini-3.6-flash ou gemini-2.5-flash
+    if (!response.ok && response.status === 404) {
+      const fallbackList = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-2.5-flash'].filter(
+        (m) => m !== targetModelClean
+      );
+      for (const fb of fallbackList) {
+        console.warn(`Tentando fallback para ${fb}...`);
+        const fallbackResponse = await callGemini(fb);
+        if (fallbackResponse.ok) {
+          response = fallbackResponse;
+          targetModelClean = fb;
+          break;
+        }
       }
     }
 
