@@ -2,13 +2,21 @@ import useSWR from 'swr';
 import { api } from '@/app/lib/utils/api';
 import { Goal, CreateGoalDTO, UpdateGoalDTO } from '@/app/types/api';
 
+export interface GoalSnapshot {
+  id?: number | string;
+  goal_id: number;
+  snapshot_date: string;
+  total_accumulated: number;
+  pool_allocated_value: number;
+}
+
 const fetcher = (url: string) => api.get(url).then((res) => res.data);
 
 export function useGoals() {
   const { data, error, mutate, isLoading } = useSWR<Goal[]>('/api/goals', fetcher);
   
-  // NOVA LINHA: Busca o histórico do banco de dados
-  const { data: historyData } = useSWR<any[]>('/api/goals/history', fetcher);
+  // Busca o histórico do banco de dados
+  const { data: historyData } = useSWR<GoalSnapshot[]>('/api/goals/history', fetcher);
 
   const addGoal = async (goal: CreateGoalDTO) => {
     const response = await api.post('/api/goals', goal);
@@ -30,7 +38,7 @@ export function useGoals() {
 
   return {
     goals: data || [],
-    historyData: historyData || [], // NOVA LINHA: Expondo os dados para a página
+    historyData: historyData || [],
     isLoading,
     isError: error,
     addGoal,

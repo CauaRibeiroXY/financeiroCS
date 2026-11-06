@@ -14,7 +14,7 @@ export async function POST(req: Request) {
         const supabase = getSupabaseAdmin();
 
         // Try finding the transaction by 'id' (UUID) or by 'transaction_id' (Pluggy string)
-        let { data: transaction, error: fetchError } = await supabase
+        let { data: transaction } = await supabase
             .from('transactions')
             .select('description, description_raw')
             .eq('id', transaction_id)
@@ -45,8 +45,9 @@ export async function POST(req: Request) {
         await categorizationService.syncTransactionCategory(category_id, originalDescription);
 
         return NextResponse.json({ success: true, message: 'Category synced and propagated successfully' });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error in sync-category API:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        const message = error instanceof Error ? error.message : 'Erro ao sincronizar categoria';
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }

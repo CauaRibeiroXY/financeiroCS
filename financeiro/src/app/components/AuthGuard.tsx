@@ -23,8 +23,8 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     const setupFetchInterceptor = (pass: string) => {
         const originalFetch = window.fetch;
         window.fetch = async (...args) => {
-            let [resource, config] = args;
-            config = config || {};
+            const [resource] = args;
+            const config: RequestInit = { ...(args[1] as RequestInit || {}) };
 
             // Criando Headers adequadamente
             const headers = new Headers(config.headers || {});
@@ -72,7 +72,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
             } else {
                 setError('Senha de acesso incorreta.');
             }
-        } catch (err) {
+        } catch {
             setError('Erro ao se comunicar com o servidor.');
         } finally {
             setIsLoading(false);

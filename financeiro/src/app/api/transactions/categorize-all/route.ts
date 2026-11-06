@@ -10,8 +10,9 @@ export async function POST() {
             message: 'Batch categorization completed successfully',
             updatedCount
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error categorizing all transactions:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        const message = error instanceof Error ? error.message : 'Erro ao categorizar transações';
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }

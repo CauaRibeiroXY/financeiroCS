@@ -5,7 +5,6 @@ import { investmentsService } from './investments';
 import { investmentTransactionsService } from './investment-transactions';
 import { loansService } from './loans';
 import { identityService } from './identity';
-import { creditCardBillsService } from './credit-card-bills';
 import { syncCreditCardBillData } from './webhook-handlers/transactions-handler';
 import { transactionsService } from './transactions';
 import { 
@@ -14,7 +13,6 @@ import {
   InvestmentTransaction,
   Loan,
 } from 'pluggy-sdk';
-import type { CreditCardBills } from 'pluggy-sdk/dist/types/creditCardBills';
 import type { 
   AccountRecord, 
   InvestmentRecord,
@@ -28,7 +26,6 @@ import { mapInvestmentFromPluggyToDb } from './mappers/investment.mapper';
 import { mapInvestmentTransactionFromPluggyToDb } from './mappers/investment-transaction.mapper';
 import { mapLoanFromPluggyToDb } from './mappers/loan.mapper';
 import { mapIdentityFromPluggyToDb } from './mappers/identity.mapper';
-import { mapCreditCardBillFromPluggyToDb } from './mappers/credit-card-bill.mapper';
 import { mapTransactionFromPluggyToDb } from './mappers/transaction.mapper';
 
 const pluggyClient = getPluggyClient();
@@ -161,7 +158,21 @@ export async function syncInvestmentTransactionData(investmentId: string): Promi
     const allTxns: ReturnType<typeof mapInvestmentTransactionFromPluggyToDb>[] = [];
 
     while (true) {
-      const invTransactionsResponse: any = await pluggyClient.fetchInvestmentTransactions(investmentId, { page });
+      interface PaginatedInvestmentTransactions {
+      results?: InvestmentTransaction[];
+      page?: number;
+      total?: number;
+      totalPages?: number;
+      hasNextPage?: boolean;
+      nextPage?: number;
+      meta?: {
+        pagination?: {
+          nextPage?: number;
+          cursor?: string;
+        };
+      };
+    }
+      const invTransactionsResponse = (await pluggyClient.fetchInvestmentTransactions(investmentId, { page })) as PaginatedInvestmentTransactions;
 
       if (invTransactionsResponse?.results && invTransactionsResponse.results.length > 0) {
         const invTransactionsToSave = invTransactionsResponse.results.map((txn: InvestmentTransaction) =>

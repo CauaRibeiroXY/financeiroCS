@@ -18,8 +18,3 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
-
-if (process.env.NODE_ENV === 'development') {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  api.interceptors.request.use((config) => config);
-}

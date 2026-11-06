@@ -1,5 +1,6 @@
 import useSWR from 'swr';
 import { api } from '@/app/lib/utils/api';
+import axios from 'axios';
 
 export interface Category {
     id: string;
@@ -20,9 +21,10 @@ export function useCategories() {
             // Revalidate to ensure server state
             mutate();
             return { success: true, data: response.data };
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Error adding category:', err);
-            throw new Error(err.response?.data?.error || 'Failed to add category');
+            const message = axios.isAxiosError(err) ? err.response?.data?.error : 'Failed to add category';
+            throw new Error(message || 'Failed to add category');
         }
     };
 
@@ -34,9 +36,10 @@ export function useCategories() {
             // Revalidate
             mutate();
             return { success: true };
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Error deleting category:', err);
-            throw new Error(err.response?.data?.error || 'Failed to delete category');
+            const message = axios.isAxiosError(err) ? err.response?.data?.error : 'Failed to delete category';
+            throw new Error(message || 'Failed to delete category');
         }
     };
 

@@ -117,9 +117,15 @@ export default function GoalsPage() {
   const evolutionData = useMemo(() => {
     if (!historyData || historyData.length === 0) return [];
 
-    const grouped: Record<string, any> = {};
+    interface GoalMonthData {
+      month: string;
+      pool: number;
+      metas: number;
+      specific: Record<number | string, { acumulado: number; alocado: number }>;
+    }
+    const grouped: Record<string, GoalMonthData> = {};
 
-    historyData.forEach((snap: any) => {
+    historyData.forEach((snap: { snapshot_date: string; total_accumulated: number | string; pool_allocated_value: number | string; goal_id: number | string }) => {
       const date = new Date(snap.snapshot_date);
       date.setMinutes(date.getMinutes() + date.getTimezoneOffset()); 
       const label = date.toLocaleDateString('pt-BR', { month: 'short' }); 
@@ -136,7 +142,7 @@ export default function GoalsPage() {
       };
     });
 
-    return Object.values(grouped).map((dataMonth: any) => {
+    return Object.values(grouped).map((dataMonth: GoalMonthData) => {
       if (chartMode === 'total') {
         return {
           month: dataMonth.month,
@@ -303,7 +309,7 @@ export default function GoalsPage() {
           <div className="space-y-4">
             {goalSummaries.length === 0 && !showForm && (
               <div className="text-center py-6 text-[#8b949e]">
-                Nenhuma meta criada. Clique em "Nova Categoria" para começar.
+                Nenhuma meta criada. Clique em &quot;Nova Meta&quot; para começar.
               </div>
             )}
             {goalSummaries.map((goal) => (

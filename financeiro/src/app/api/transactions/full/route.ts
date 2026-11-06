@@ -16,7 +16,6 @@ import { fetchAllTransactions } from '@/app/lib/utils/fetch-all-transactions';
 import { transactionsService } from '@/app/lib/services/transactions';
 import { accountsService } from '@/app/lib/services/accounts';
 import { withErrorHandling } from '@/app/lib/utils/error-handler';
-import type { TransactionRecord } from '@/app/types/pluggy';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300; // 5 minutes for full pagination
@@ -29,7 +28,7 @@ async function handleFullTransactions(request: NextRequest) {
   const toParam = searchParams.get('to');
   const pageSizeParam = searchParams.get('pageSize');
 
-  // ✅ Validate required parameters
+  // Validate required parameters
   if (!accountId) {
     return NextResponse.json(
       { 
@@ -41,7 +40,7 @@ async function handleFullTransactions(request: NextRequest) {
     );
   }
 
-  // ✅ Parse and validate dates
+  // Parse and validate dates
   const today = new Date();
   const ninetyDaysAgo = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000);
 
@@ -76,7 +75,7 @@ async function handleFullTransactions(request: NextRequest) {
     );
   }
 
-  // ✅ Parse and validate pageSize
+  // Parse and validate pageSize
   let pageSize = 100;
   if (pageSizeParam) {
     const parsed = parseInt(pageSizeParam);
@@ -93,7 +92,7 @@ async function handleFullTransactions(request: NextRequest) {
   }
 
   try {
-    // ✅ Step 1: Get the account to retrieve the item_id
+    // Step 1: Get the account to retrieve the item_id
     const account = await accountsService.getAccountById(accountId);
     
     if (!account) {
@@ -111,7 +110,7 @@ async function handleFullTransactions(request: NextRequest) {
 
     console.log(`[/api/transactions/full] Processing account: ${accountId}, item: ${itemId}`);
 
-    // ✅ Step 2: Fetch ALL transactions using automatic pagination
+    // Step 2: Fetch ALL transactions using automatic pagination
     const allTransactions = await fetchAllTransactions(
       accountId,
       from,
@@ -120,7 +119,7 @@ async function handleFullTransactions(request: NextRequest) {
 
     console.log(`[/api/transactions/full] Fetched ${allTransactions.length} transactions, upserting to database...`);
 
-    // ✅ Step 3: Merge transactions in database (upsert to avoid duplicates by transaction_id)
+    // Step 3: Merge transactions in database (upsert to avoid duplicates by transaction_id)
     const savedTransactions = await transactionsService.upsertTransactions(
       allTransactions.map(tx => ({
         ...tx,
@@ -130,7 +129,7 @@ async function handleFullTransactions(request: NextRequest) {
 
     console.log(`[/api/transactions/full] Successfully upserted ${savedTransactions.length} transactions`);
 
-    // ✅ Step 4: Return all transactions
+    // Step 4: Return all transactions
     return NextResponse.json({
       success: true,
       data: {

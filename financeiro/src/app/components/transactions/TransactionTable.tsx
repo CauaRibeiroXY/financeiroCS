@@ -127,7 +127,7 @@ export function TransactionTable({
 
       // Invalidate SWR cache for all transactions hooks to force refetch
       mutate(
-        (key: any) => typeof key === 'string' && key.includes('/api/transactions?accountId='),
+        (key: unknown) => typeof key === 'string' && key.includes('/api/transactions?accountId='),
         undefined,
         { revalidate: true }
       );
@@ -147,8 +147,9 @@ export function TransactionTable({
       if (result.success && result.data) {
         setSelectedCategory(result.data.id);
       }
-    } catch (error: any) {
-      alert(error.message || 'Erro ao criar categoria.');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Erro ao criar categoria.';
+      alert(msg);
       throw error;
     }
   };

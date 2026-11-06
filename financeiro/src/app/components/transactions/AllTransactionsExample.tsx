@@ -12,7 +12,6 @@
 
 import { useAllTransactions } from '@/app/hooks/useAllTransactions';
 import { useState } from 'react';
-import type { TransactionRecord } from '@/app/types/pluggy';
 
 interface TransactionListProps {
   accountId: string;
@@ -151,7 +150,7 @@ export function AllTransactionsExample({
                           : 'bg-yellow-100 text-yellow-800'
                       }`}
                     >
-                      {tx.status || 'POSTED'}
+                      {tx.status}
                     </span>
                   </td>
                 </tr>

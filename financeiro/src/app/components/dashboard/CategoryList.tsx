@@ -22,7 +22,6 @@ interface CategoryListProps {
 }
 
 export function CategoryList({ categories, subtitle, isLoading }: CategoryListProps) {
-  const maxAmount = Math.max(...categories.map((c) => c.current), 1);
 
   return (
     <div className="rounded-xl border border-[#30363d] bg-[#161b22] p-5 flex flex-col gap-3">
@@ -65,8 +64,7 @@ export function CategoryList({ categories, subtitle, isLoading }: CategoryListPr
                 cat.previous > 0
                   ? ((cat.current - cat.previous) / cat.previous) * 100
                   : 0;
-              const barWidth = (cat.current / maxAmount) * 100;
-              const isUp = variation > 0;
+                            const isUp = variation > 0;
 
               return (
                 <div

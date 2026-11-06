@@ -21,7 +21,6 @@ import {
   ArrowRight,
   Plane,
   Calendar,
-  Info,
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatCurrency } from '@/app/lib/utils/format';

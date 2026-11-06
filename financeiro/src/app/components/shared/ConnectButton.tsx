@@ -4,7 +4,6 @@ import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { PlusCircle, Loader2 } from 'lucide-react';
 import { api } from '@/app/lib/utils/api';
-import { Item } from 'pluggy-sdk';
 
 const PluggyConnect = dynamic(
   () => import('react-pluggy-connect').then((mod) => mod.PluggyConnect),
@@ -49,7 +48,7 @@ export function ConnectButton({
     }
   };
 
-  const handleSuccess = async (_data: { item: Item }) => {
+  const handleSuccess = async () => {
     setIsOpen(false);
     onSuccess?.();
   };

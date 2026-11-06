@@ -225,12 +225,12 @@ export function useDashboardData(): DashboardData {
       .filter((a) => a.type === 'CREDIT')
       .reduce((sum, a) => {
         // Usa 'as any' para o TypeScript parar de achar que é um objeto '{}'
-        const creditData = a.credit_data as any; 
+        const creditData = a.credit_data as Record<string, unknown> | null | undefined; 
         
         // Converte o resultado garantidamente para Number
         const limit = Number(
-          creditData?.available_credit_limit ?? 
-          creditData?.availableCreditLimit ?? 
+          (creditData?.available_credit_limit as number) ?? 
+          (creditData?.availableCreditLimit as number) ?? 
           0
         );
         

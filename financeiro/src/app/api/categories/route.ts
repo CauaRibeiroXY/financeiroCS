@@ -15,8 +15,9 @@ export async function GET() {
         }
 
         return NextResponse.json(data);
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Erro ao listar categorias';
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }
 
@@ -46,7 +47,8 @@ export async function POST(req: Request) {
         }
 
         return NextResponse.json(data, { status: 201 });
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Erro ao criar categoria';
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }

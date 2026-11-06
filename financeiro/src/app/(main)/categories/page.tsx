@@ -20,8 +20,8 @@ export default function CategoriesPage() {
         try {
             await addCategory(newCategoryName.trim());
             setNewCategoryName('');
-        } catch (err: any) {
-            setError(err.message || 'Erro ao adicionar categoria');
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Erro ao adicionar categoria');
         } finally {
             setIsSubmitting(false);
         }
@@ -32,8 +32,8 @@ export default function CategoriesPage() {
 
         try {
             await deleteCategory(id);
-        } catch (err: any) {
-            setError(err.message || 'Erro ao deletar categoria');
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Erro ao deletar categoria');
         }
     };
 
